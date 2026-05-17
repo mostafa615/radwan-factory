@@ -1,0 +1,44 @@
+/node_modules
+/public/hot
+/public/storage
+/storage/*.key
+/vendor
+/.idea
+/.vagrant
+Homestead.json
+Homestead.yaml
+npm-debug.log
+yarn-error.log
+.env
+*.zip
+error_log
+.htaccess.phpupgrader.*
+*.sql.gz
+*.sql
+# Ignore Laravel Excel temporary files
+/storage/framework/laravel-excel/*
+
+# Ignore all temporary files
+*.tmp
+
+# Standard Laravel storage ignore
+/storage/*.key
+/storage/framework/cache/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+
+# Ignore SQL and backups anywhere in the project
+**/*.sql
+**/*.sql.gz
+
+# Ignore all temp files
+**/*.tmp
+
+# Specifically ignore your backup folder
+/_src/
+# Ignore all log files anywhere
+**/*.log
+
+# Specifically ignore Laravel logs folder content
+/storage/logs/*
+!/storage/logs/.gitignore
