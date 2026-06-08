@@ -136,6 +136,7 @@ Route::group(['prefix' => LaravelLocalization::setLocale(),'middleware' => [ 'lo
             Route::get('reports/scraps_report', 'ReportController@scraps_report')->name('reports.scraps_report');
             Route::get('reports/pieces_report', 'ReportController@pieces_report')->name('reports.pieces_report');
             Route::get('reports/machine_supplies_report', 'ReportController@machineSuppliesReport')->name('reports.machine_supplies');
+            Route::get('reports/new_machine_supplies_report', 'ReportController@newMachineSuppliesReport')->name('reports.new_machine_supplies');
             Route::get('reports/confirm_notes_report', 'ReportController@confirmNotesReport')->name('reports.confirm_notes');
             Route::get('reports/operation_order_results', 'ReportController@operationOrderResults')->name('reports.operation_order_results');
             Route::get('reports/employees_performance', 'ReportController@employeesPerformance')->name('reports.employees_performance');

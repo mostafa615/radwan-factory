@@ -544,6 +544,50 @@
                                 </div>
                             </div>
                         </div>
+
+                        <div class="col-md-4 mb-3">
+                            @if (Auth::user()->can('read_machine_supplie_reports'))
+                                <button class="btn btn-block btn-info"  data-toggle="modal" data-target="#newMachineSupplies">تقرير حركة المستلزم (جديد)</button>
+                            
+                                <div id="newMachineSupplies" class="modal fade" role="dialog">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <button type="button" class="close" data-dismiss="modal">&times;
+                                                </button>
+                                                <h4 class="modal-title">التفاصيل</h4>
+                                            </div>
+                                            <form action="{{ route('dashboard.reports.new_machine_supplies') }}" method="GET">
+                                                {{ csrf_field() }}
+                                                <div class="modal-body">
+                                                    <div class="form-group">
+                                                        <label>المستلزم <span class="text-danger">*</span></label>
+                                                        <select class="form-control select2-js" name="supplie_id" id="supplie_id">
+                                                            @foreach (App\Supplies::latest()->get() as $supply)
+                                                            <option value="{{ $supply->id }}">{{ $supply->name }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label>من تاريخ <span class="text-danger">*</span></label>
+                                                        <input type="date" name="date_from" class="form-control" style="position: relative" value="<?php echo date('Y-m-d'); ?>">
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label>إلي تاريخ <span class="text-danger">*</span></label>
+                                                        <input type="date" name="date_to" class="form-control" style="position: relative" value="<?php echo date('Y-m-d'); ?>">
+                                                    </div>
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="submit" class="btn btn-success">عرض</button>
+                                                    <button type="button" class="btn btn-default" data-dismiss="modal">إغلاق
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endif
+                        </div>
                     </div>
                     <br>
                     <div class="row">

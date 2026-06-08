@@ -56,6 +56,102 @@ class ReportController extends Controller
         return view('dashboard.reports.machine_report', compact('operation_orders'));
     }
 
+    public function newMachineSuppliesReport(Request $request)
+    {
+        $this->validate($request, [
+            'supplie_id' => 'required|integer|exists:supplies,id',
+            'date_from' => 'required|date|before_or_equal:date_to',
+            'date_to' => 'required|date|after_or_equal:date_from',
+        ]);
+
+        $minStartDate = Carbon::create(2026, 6, 8);
+        $requestStartDate = Carbon::parse($request->date_from);
+
+        $startDate = $requestStartDate->lessThan($minStartDate) ? $minStartDate->format('Y-m-d') : $requestStartDate->format('Y-m-d');
+        $endDate = Carbon::parse($request->date_to)->format('Y-m-d');
+
+        $supplie = Supplies::find($request->supplie_id);
+
+        $machineSupplies = DB::table('machine_supplies')
+                            ->join('machines', 'machine_supplies.machine_id', 'machines.id')
+                            ->where('machine_supplies.supplie_id', $supplie->id)
+                            ->whereBetween('machine_supplies.date', [$startDate, $endDate])
+                            ->orderBy('machine_supplies.date', 'ASC')
+                            ->select([
+                                'machine_supplies.id',
+                                'machine_supplies.date',
+                                'machines.name as machine_name',
+                                'machine_supplies.quantity',
+                            ])
+                            ->get();
+
+        $supplieOrdersIn = DB::table('order_details')
+                            ->join('orders', 'order_details.order_id', 'orders.id')
+                            ->where('orders.type', 'in')
+                            ->where('orders.is_return', false)
+                            ->where('orders.is_oper_supplies', true)
+                            ->where('order_details.item_id', $supplie->id)
+                            ->where('order_details.status', 'accepted')
+                            ->whereBetween('orders.date', [$startDate, $endDate])
+                            ->orderBy('orders.date', 'ASC')
+                            ->select([
+                                'orders.id',
+                                'orders.date',
+                                'order_details.quantity',
+                            ])
+                            ->get();
+
+        $supplieOrdersInReturn = DB::table('order_details')
+                            ->join('orders', 'order_details.order_id', 'orders.id')
+                            ->where('orders.type', 'in')
+                            ->where('orders.is_return', true)
+                            ->where('orders.is_oper_supplies', true)
+                            ->where('order_details.item_id', $supplie->id)
+                            ->where('order_details.status', 'accepted')
+                            ->whereBetween('orders.date', [$startDate, $endDate])
+                            ->orderBy('orders.date', 'ASC')
+                            ->select([
+                                'orders.id',
+                                'orders.date',
+                                'order_details.quantity',
+                            ])
+                            ->get();
+
+        $supplieOrdersOut = DB::table('order_details')
+                            ->join('orders', 'order_details.order_id', 'orders.id')
+                            ->where('orders.type', 'out')
+                            ->where('orders.is_return', false)
+                            ->where('orders.is_oper_supplies', true)
+                            ->where('order_details.item_id', $supplie->id)
+                            ->where('order_details.status', 'accepted')
+                            ->whereBetween('orders.date', [$startDate, $endDate])
+                            ->orderBy('orders.date', 'ASC')
+                            ->select([
+                                'orders.id',
+                                'orders.date',
+                                'order_details.quantity',
+                            ])
+                            ->get();
+
+        $supplieOrdersOutReturn = DB::table('order_details')
+                            ->join('orders', 'order_details.order_id', 'orders.id')
+                            ->where('orders.type', 'out')
+                            ->where('orders.is_return', true)
+                            ->where('orders.is_oper_supplies', true)
+                            ->where('order_details.item_id', $supplie->id)
+                            ->where('order_details.status', 'accepted')
+                            ->whereBetween('orders.date', [$startDate, $endDate])
+                            ->orderBy('orders.date', 'ASC')
+                            ->select([
+                                'orders.id',
+                                'orders.date',
+                                'order_details.quantity',
+                            ])
+                            ->get();
+
+        return view('dashboard.reports.new_machine_supplies', compact('supplie', 'machineSupplies', 'supplieOrdersIn', 'supplieOrdersInReturn', 'supplieOrdersOut', 'supplieOrdersOutReturn', 'startDate', 'endDate'));
+    }
+
     public function machineSuppliesReport(Request $request)
     {
         $this->validate($request, [
@@ -107,8 +203,6 @@ class ReportController extends Controller
             compact('machineSupplies', 'spplie', 'supplyOrders', 'request', 'openingBalance', 'currentBalance')
         );
     }
-
-
 
     public function machineSupplieInventory(Request $request)
     {
