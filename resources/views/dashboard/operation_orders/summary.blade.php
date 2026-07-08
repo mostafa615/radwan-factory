@@ -63,7 +63,9 @@
           </div>
         </div>
         @php
-          $groupedOrders = $operationOrders->groupBy('machine_id');
+          $groupedOrders = $operationOrderDetails->groupBy(function ($detail) {
+            return optional($detail->operationOrder)->machine_id;
+          });
           $stepLabels = [
             'warehouse_supervisor' => 'سماح الماكينة',
             'machine_manager' => 'مشرف الماكينة',
@@ -73,7 +75,7 @@
         @endphp
         @foreach ($groupedOrders as $machineId => $machineOrders)
           @php
-            $machine = optional($machineOrders->first())->machine;
+            $machine = optional(optional($machineOrders->first())->operationOrder)->machine;
           @endphp
           <div class="machine-section">
             <div class="machine-header">
@@ -86,37 +88,43 @@
               <table class="modern-table">
                 <thead>
                   <tr>
-                    <td>#</td>
                     <td>رقم الأمر</td>
+                    <td>التشغيل</td>
                     <td>التاريخ</td>
                     <td>اسم العميل</td>
+                    <td>الخامة المستخدمة</td>
+                    <td>عدد</td>
                     <td>ملاحظات</td>
                     <td>موقع الأمر</td>
                     <td>الحالة</td>
                   </tr>
                 </thead>
                 <tbody>
-                  @foreach ($machineOrders as $order)
+                  @foreach ($machineOrders as $detail)
                     @php
-                        $tracks = $order->tracks->sortBy('id');
-                        $currentTrack = $tracks->firstWhere('status', 'rejected');
-                        if (!$currentTrack) {
-                          $currentTrack = $tracks->firstWhere('status', 'pending');
-                        }
-                        if (!$currentTrack) {
-                          $currentTrack = $tracks->last();
-                        }
-                        $currentStep = isset($stepLabels[$currentTrack->step_name]) ? $stepLabels[$currentTrack->step_name] : '';
-                        if ($tracks->where('status', 'rejected')->isNotEmpty()) {
-                          $status = 'rejected';
-                          $statusLabel = 'مرفوض';
-                        } elseif ($tracks->where('status', 'pending')->isEmpty() && $tracks->where('status', 'approved')->isNotEmpty()) {
-                          $status = 'approved';
-                          $statusLabel = 'مكتمل';
-                        } else {
-                          $status = 'pending';
-                          $statusLabel = 'في الانتظار';
-                        }
+                      $order = $detail->operationOrder;
+                      if (!$order) {
+                        continue;
+                      }
+                      $tracks = $detail->tracks->sortBy('id');
+                      $currentTrack = $tracks->firstWhere('status', 'rejected');
+                      if (!$currentTrack) {
+                        $currentTrack = $tracks->firstWhere('status', 'pending');
+                      }
+                      if (!$currentTrack) {
+                        $currentTrack = $tracks->last();
+                      }
+                      $currentStep = $currentTrack ? ($stepLabels[$currentTrack->step_name] ?? '') : '';
+                      if ($tracks->where('status', 'rejected')->isNotEmpty()) {
+                        $status = 'rejected';
+                        $statusLabel = 'مرفوض';
+                      } elseif ($tracks->where('status', 'pending')->isEmpty() && $tracks->where('status', 'approved')->isNotEmpty()) {
+                        $status = 'approved';
+                        $statusLabel = 'مكتمل';
+                      } else {
+                        $status = 'pending';
+                        $statusLabel = 'في الانتظار';
+                      }
                     @endphp
                     <tr>
                       <td>
@@ -126,8 +134,10 @@
                       </td>
                       <td>{{ $order->out_operation ? 'خارجي' : 'داخلي' }}</td>
                       <td>{{ $order->date }}</td>
-                      <td>{{ $order->client_name }}</td>
-                      <td>{{ $currentTrack->notes ?? '' }}</td>
+                      <td>{{ $order->client_name ?? '' }}</td>
+                      <td>{{ $detail->item->name ?? '' }}</td>
+                      <td>{{ $detail->old_item_supp_quantity }}</td>
+                      <td>{{ $order->notes ?? '' }}</td>
                       <td>
                         <span class="step-badge">{{ $currentStep }}</span>
                       </td>

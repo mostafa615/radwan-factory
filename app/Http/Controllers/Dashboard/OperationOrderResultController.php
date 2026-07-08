@@ -652,7 +652,7 @@ class OperationOrderResultController extends Controller
             $this->push_notification(['user_id' => $usersRespons[$index], 'url' => url('operation_orders')]);
         }
     
-        $operationOrder->tracks()->where('step_name', 'machine_manager')->update([
+        $operationOrderDetail->tracks()->where('step_name', 'machine_manager')->update([
             'status' => 'approved',
             'user_id' => auth()->user()->id,
             'notes' => $request->notes ?? null,
@@ -1008,7 +1008,7 @@ class OperationOrderResultController extends Controller
             $this->push_notification(['user_id' => $usersRespons[$index], 'url' => url('operation_orders')]);
         }
     
-        $operationOrder->tracks()->where('step_name', 'machine_manager')->update([
+        $operationOrderDetail->tracks()->where('step_name', 'machine_manager')->update([
             'status' => 'approved',
             'user_id' => auth()->user()->id,
             'notes' => $request->notes ?? null,
@@ -1440,7 +1440,8 @@ class OperationOrderResultController extends Controller
                         ]);
                     
                     	$operationOrder = OperationOrder::where('id', $resource->operation_order_id)->first();
-                        $operationOrder->tracks()->where('step_name', 'production_manager')->update([
+                        $orderDetail = OperationOrderDetail::where('id', $resource->order_details_id)->where('operation_order_id', $operationOrder->id)->first();
+                        $orderDetail->tracks()->where('step_name', 'production_manager')->update([
                             'status' => $res['confirmed'] == 1 ? 'approved' : 'rejected',
                             'user_id' => auth()->user()->id,
                             'notes' => $res['confirm_notes'] ?? null,
@@ -1574,7 +1575,7 @@ class OperationOrderResultController extends Controller
                             }
                         }
                     
-                        $operationOrder->tracks()->where('step_name', 'store_manager')->update([
+                        $orderDetail->tracks()->where('step_name', 'store_manager')->update([
                             'status' => $res['store_confirm'] == 1 ? 'approved' : 'rejected',
                             'user_id' => auth()->user()->id,
                             'notes' => $res['store_confirm_notes'] ?? null,
@@ -1638,6 +1639,7 @@ class OperationOrderResultController extends Controller
                         ]);
 
                         $operationOrder = OperationOrder::where('id', $resource->operation_order_id)->first();
+                        $orderDetail = OperationOrderDetail::where('id', $resource->order_details_id)->where('operation_order_id', $operationOrder->id)->first();
                         $operationOrder->update([
                             'out_confirmed' => $res['confirmed'],
                             'confirm_notes' => $res['confirm_notes'],
@@ -1645,7 +1647,7 @@ class OperationOrderResultController extends Controller
                             'confirmed_at' => date('Y-m-d h:i:s'),
                         ]);
                     
-                        $operationOrder->tracks()->where('step_name', 'production_manager')->update([
+                        $orderDetail->tracks()->where('step_name', 'production_manager')->update([
                             'status' => $res['confirmed'] == 1 ? 'approved' : 'rejected',
                             'user_id' => auth()->user()->id,
                             'notes' => $res['confirm_notes'] ?? null,
@@ -1667,6 +1669,7 @@ class OperationOrderResultController extends Controller
                             ->first();
 
                         $operationOrder = OperationOrder::where('id', $resource->operation_order_id)->first();
+                        $orderDetail = OperationOrderDetail::where('id', $resource->order_details_id)->where('operation_order_id', $operationOrder->id)->first();
                         $orderResultDetails = OperationOrderResultDetail::where('order_results_id', $resource->id)->get();
                         DB::beginTransaction();
 
@@ -1712,7 +1715,7 @@ class OperationOrderResultController extends Controller
                             'store_confirm_notes' => $res['store_confirm_notes'],
                         ]);
                     
-                        $operationOrder->tracks()->where('step_name', 'store_manager')->update([
+                        $orderDetail->tracks()->where('step_name', 'store_manager')->update([
                             'status' => $res['store_confirm'] == 1 ? 'approved' : 'rejected',
                             'user_id' => auth()->user()->id,
                             'notes' => $res['store_confirm_notes'] ?? null,
