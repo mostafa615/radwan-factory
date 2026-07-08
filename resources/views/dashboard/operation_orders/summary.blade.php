@@ -135,8 +135,8 @@
                       <td>{{ $order->out_operation ? 'خارجي' : 'داخلي' }}</td>
                       <td>{{ $order->date }}</td>
                       <td>{{ $order->client_name ?? '' }}</td>
-                      <td>{{ $detail->item->name ?? '' }}</td>
-                      <td>{{ $detail->old_item_supp_quantity }}</td>
+                      <td>{{ $order->out_operation ? $detail->item_name : $detail->item->name }}</td>
+                      <td>{{ $order->out_operation ? $detail->supplie_quantity_used : $detail->old_item_supp_quantity }}</td>
                       <td>{{ $order->notes ?? '' }}</td>
                       <td>
                         <span class="step-badge">{{ $currentStep }}</span>

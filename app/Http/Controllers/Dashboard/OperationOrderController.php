@@ -801,10 +801,6 @@ class OperationOrderController extends Controller
                 $orderDetailCreate->tracks()->createMany([
                     [
                         'operation_order_id' => $operationOrder->id,
-                        'step_name' => 'warehouse_supervisor',
-                    ],
-                    [
-                        'operation_order_id' => $operationOrder->id,
                         'step_name' => 'machine_manager',
                     ],
                     [
