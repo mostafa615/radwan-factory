@@ -544,7 +544,7 @@
                                 </div>
                             </div>
                         </div>
-
+                                    
                         <div class="col-md-4 mb-3">
                             @if (Auth::user()->can('read_machine_supplie_reports'))
                                 <button class="btn btn-block btn-info"  data-toggle="modal" data-target="#newMachineSupplies">تقرير حركة المستلزم (جديد)</button>
@@ -570,11 +570,11 @@
                                                     </div>
                                                     <div class="form-group">
                                                         <label>من تاريخ <span class="text-danger">*</span></label>
-                                                        <input type="date" name="date_from" class="form-control" style="position: relative" value="<?php echo date('Y-m-d'); ?>">
+                                                        <input type="date" name="date_from" class="form-control" min="2026-06-29" style="position: relative" value="{{ date('Y-m-d') < '2026-06-29' ? '2026-06-29' : date('Y-m-d') }}">
                                                     </div>
                                                     <div class="form-group">
                                                         <label>إلي تاريخ <span class="text-danger">*</span></label>
-                                                        <input type="date" name="date_to" class="form-control" style="position: relative" value="<?php echo date('Y-m-d'); ?>">
+                                                        <input type="date" name="date_to" class="form-control" min="2026-06-29" style="position: relative" value="{{ date('Y-m-d') < '2026-06-29' ? '2026-06-29' : date('Y-m-d') }}">
                                                     </div>
                                                 </div>
                                                 <div class="modal-footer">

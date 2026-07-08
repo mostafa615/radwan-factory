@@ -651,6 +651,13 @@ class OperationOrderResultController extends Controller
         for ($index = 0; $index < count($usersRespons); $index++) {
             $this->push_notification(['user_id' => $usersRespons[$index], 'url' => url('operation_orders')]);
         }
+    
+        $operationOrder->tracks()->where('step_name', 'machine_manager')->update([
+            'status' => 'approved',
+            'user_id' => auth()->user()->id,
+            'notes' => $request->notes ?? null,
+            'action_at' => now(),
+        ]);
 
         session()->flash('success', __('site.added_successfully'));
         return redirect()->route('dashboard.operation_order_results.index');
@@ -1000,6 +1007,13 @@ class OperationOrderResultController extends Controller
         for ($index = 0; $index < count($usersRespons); $index++) {
             $this->push_notification(['user_id' => $usersRespons[$index], 'url' => url('operation_orders')]);
         }
+    
+        $operationOrder->tracks()->where('step_name', 'machine_manager')->update([
+            'status' => 'approved',
+            'user_id' => auth()->user()->id,
+            'notes' => $request->notes ?? null,
+            'action_at' => now(),
+        ]);
 
         session()->flash('success', __('site.added_successfully'));
         return redirect()->route('dashboard.operation_order_results.index_out');
@@ -1424,6 +1438,14 @@ class OperationOrderResultController extends Controller
                             'user_id' => auth()->user()->id,
                             'confirmed_at' => date('Y-m-d h:i:s'),
                         ]);
+                    
+                    	$operationOrder = OperationOrder::where('id', $resource->operation_order_id)->first();
+                        $operationOrder->tracks()->where('step_name', 'production_manager')->update([
+                            'status' => $res['confirmed'] == 1 ? 'approved' : 'rejected',
+                            'user_id' => auth()->user()->id,
+                            'notes' => $res['confirm_notes'] ?? null,
+                            'action_at' => now(),
+                        ]);
                     }
 
                     if (array_key_exists('store_confirm', $res)) {
@@ -1551,6 +1573,13 @@ class OperationOrderResultController extends Controller
                                 $oldItemQuantity->save();
                             }
                         }
+                    
+                        $operationOrder->tracks()->where('step_name', 'store_manager')->update([
+                            'status' => $res['store_confirm'] == 1 ? 'approved' : 'rejected',
+                            'user_id' => auth()->user()->id,
+                            'notes' => $res['store_confirm_notes'] ?? null,
+                            'action_at' => now(),
+                        ]);
 
                         DB::commit();
                     }
@@ -1615,6 +1644,13 @@ class OperationOrderResultController extends Controller
                             'confirm_user_id' => auth()->user()->id,
                             'confirmed_at' => date('Y-m-d h:i:s'),
                         ]);
+                    
+                        $operationOrder->tracks()->where('step_name', 'production_manager')->update([
+                            'status' => $res['confirmed'] == 1 ? 'approved' : 'rejected',
+                            'user_id' => auth()->user()->id,
+                            'notes' => $res['confirm_notes'] ?? null,
+                            'action_at' => now(),
+                        ]);
                     }
 
                     if (array_key_exists('store_confirm', $res)) {
@@ -1674,6 +1710,13 @@ class OperationOrderResultController extends Controller
                         $resource->update([
                             'store_confirm' => $res['store_confirm'],
                             'store_confirm_notes' => $res['store_confirm_notes'],
+                        ]);
+                    
+                        $operationOrder->tracks()->where('step_name', 'store_manager')->update([
+                            'status' => $res['store_confirm'] == 1 ? 'approved' : 'rejected',
+                            'user_id' => auth()->user()->id,
+                            'notes' => $res['store_confirm_notes'] ?? null,
+                            'action_at' => now(),
                         ]);
 
                         DB::commit();

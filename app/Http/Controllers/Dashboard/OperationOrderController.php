@@ -307,7 +307,31 @@ class OperationOrderController extends Controller
         return view('dashboard.operation_orders.index_out', compact('operationOrder'));
     }
 
-    
+    public function summary()
+    {
+        $baseQuery = OperationOrder::whereHas('tracks');
+
+        $allOrders = (clone $baseQuery)->with('tracks')->get();
+
+        $stats = [
+            'totalOrders' => $allOrders->count(),
+            'completedOrders' => $allOrders
+                ->filter(function ($o) {
+                    return $o->tracks->where('status', 'pending')->isEmpty() && $o->tracks->where('status', 'approved')->isNotEmpty() && $o->tracks->where('status', 'rejected')->isEmpty();
+                })
+                ->count(),
+            'rejectedOrders' => $allOrders
+                ->filter(fn($o) => $o->tracks->where('status', 'rejected')->isNotEmpty())
+                ->count(),
+        ];
+
+        $stats['pendingOrders'] = $stats['totalOrders'] - $stats['completedOrders'] - $stats['rejectedOrders'];
+
+        $operationOrders = (clone $baseQuery)->with(['machine', 'employee', 'item', 'tracks.user', 'operationOrderDetails'])->orderBy('machine_id')->orderByDesc('id')->get();
+
+        return view('dashboard.operation_orders.summary', compact('operationOrders', 'stats'));
+    }
+
     public function create() {
         $users = User::where('role_id', 7)->get();
         $admins = User::where('role_id', 8)->get();
@@ -421,6 +445,21 @@ class OperationOrderController extends Controller
         for ($index = 0; $index < count($usersRespons); $index++) {
             $this->push_notification(['user_id' => $usersRespons[$index], 'url' => url('operation_orders')]);
         }
+    
+        $operationOrder->tracks()->createMany([
+            [
+                'step_name' => 'warehouse_supervisor',
+            ],
+            [
+                'step_name' => 'machine_manager',
+            ],
+            [
+                'step_name' => 'production_manager',
+            ],
+            [
+                'step_name' => 'store_manager',
+            ],
+        ]);
 
         session()->flash('success', __('site.added_successfully'));
         return redirect()->route('dashboard.operation_orders.index');
@@ -751,6 +790,20 @@ class OperationOrderController extends Controller
             $this->push_notification(['user_id' => $usersRespons[$index], 'url' => url('operation_orders')]);
         }
 
+        $operationOrder->tracks()->createMany([
+            [
+                'step_name' => 'warehouse_supervisor',
+            ],
+            [
+                'step_name' => 'machine_manager',
+            ],
+            [
+                'step_name' => 'production_manager',
+            ],
+            [
+                'step_name' => 'store_manager',
+            ],
+        ]);
 
         session()->flash('success', __('site.added_successfully'));
         return redirect()->route('dashboard.operation_orders.index_out');
@@ -1226,6 +1279,13 @@ class OperationOrderController extends Controller
 
         $operationOrder->update(['machine_access' => 1, 'notes2' => $request->notes2 ?? '', 'store_employees' => implode(',', $request->store_employees) ?? 0]);
 
+        $operationOrder->tracks()->where('step_name', 'warehouse_supervisor')->update([
+            'status' => 'approved',
+            'user_id' => auth()->user()->id,
+            'notes' => $request->notes2 ?? null,
+            'action_at' => now(),
+        ]);
+    
         session()->flash('success', 'تم السماح للماكينة بالاستكمال');
         return back();
     }
