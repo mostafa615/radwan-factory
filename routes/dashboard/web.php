@@ -66,6 +66,7 @@ Route::group(['prefix' => LaravelLocalization::setLocale(),'middleware' => [ 'lo
             Route::get('operation_orders/update_is_complete/{id}', 'OperationOrderController@updateIsComplete')->name('operation_orders.update_is_complete');
 
             Route::get('operation_orders/summary', 'OperationOrderController@summary')->name('operation_orders.summary');
+            Route::get('operation_orders/summary/data', 'OperationOrderController@summaryData')->name('operation_orders.summaryData');
 
             Route::get('operation_orders/complete_out/{id}', 'OperationOrderController@showCompleteOut')->name('operation_orders.showCompleteOut');
             Route::put('operation_orders/complete_out/{id}', 'OperationOrderController@updateCompleteOut')->name('operation_orders.updateCompleteOut');

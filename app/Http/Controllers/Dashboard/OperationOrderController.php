@@ -4,6 +4,7 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use Carbon\Carbon;
 use App\Department;
 use App\Admin;
 use App\Reposite;
@@ -309,48 +310,149 @@ class OperationOrderController extends Controller
 
     public function summary()
     {
+        return view('dashboard.operation_orders.summary');
+    }
+
+    public function summaryData()
+    {
         $baseQuery = OperationOrderDetail::query()
                                         ->whereHas('tracks')
-                                        ->with(['operationOrder', 'item']);
-
-        $operationOrderDetails = (clone $baseQuery)->get()
-                                                ->sortBy(function ($detail) {
-                                                    return optional($detail->operationOrder)->machine_id;
-                                                })
-                                                ->values();
-
+                                        ->with(['operationOrder.machine', 'operationOrder.tracks', 'item']);
+    
+        $operationOrderDetails = $baseQuery->get()
+                                        ->sortBy(fn ($detail) => optional($detail->operationOrder)->machine_id)
+                                        ->values();
+    
         $stats = [
-            'totalOrders' => $operationOrderDetails
-                ->pluck('operation_order_id')
-                ->unique()
-                ->count(),
-
+            'totalOrders' => $operationOrderDetails->pluck('operation_order_id')->unique()->count(),
             'completedOrders' => $operationOrderDetails
                 ->groupBy('operation_order_id')
                 ->filter(function ($details) {
                     $tracks = optional($details->first()->operationOrder)->tracks;
-
                     return $tracks &&
                         $tracks->where('status', 'pending')->isEmpty() &&
                         $tracks->where('status', 'approved')->isNotEmpty() &&
                         $tracks->where('status', 'rejected')->isEmpty();
                 })
                 ->count(),
-
             'rejectedOrders' => $operationOrderDetails
                 ->groupBy('operation_order_id')
                 ->filter(function ($details) {
                     $tracks = optional($details->first()->operationOrder)->tracks;
-
-                    return $tracks &&
-                        $tracks->where('status', 'rejected')->isNotEmpty();
+    
+                    return $tracks && $tracks->where('status', 'rejected')->isNotEmpty();
                 })
                 ->count(),
         ];
 
         $stats['pendingOrders'] = $stats['totalOrders'] - $stats['completedOrders'] - $stats['rejectedOrders'];
+    
+        $today = Carbon::today();
+    
+        $visibleDetails = $operationOrderDetails->filter(function ($detail) use ($today) {
+            $tracks = optional($detail->operationOrder)->tracks;
+            if (!$tracks) {
+                return false;
+            }
+    
+            $isCompleted = $tracks->where('status', 'pending')->isEmpty() &&
+                $tracks->where('status', 'approved')->isNotEmpty() &&
+                $tracks->where('status', 'rejected')->isEmpty();
+    
+            if (!$isCompleted) {
+                return true;
+            }
+    
+            $lastApproval = $tracks->where('status', 'approved')->sortByDesc('updated_at')->first();
+    
+            return $lastApproval && Carbon::parse($lastApproval->updated_at)->isSameDay($today);
+        })->values();
+    
+        $stepLabels = [
+            'warehouse_supervisor' => 'سماح الماكينة',
+            'machine_manager' => 'مشرف الماكينة',
+            'production_manager' => 'مشرف الإنتاج',
+            'store_manager' => 'مشرف المخزن',
+        ];
+    
+        $machines = [];
+    
+        foreach ($visibleDetails->groupBy(fn ($d) => optional($d->operationOrder)->machine_id) as $machineId => $machineDetails) {
+            $machine = optional(optional($machineDetails->first())->operationOrder)->machine;
+            $rows = [];
+    
+            foreach ($machineDetails as $detail) {
+                $order = $detail->operationOrder;
+                if (!$order) {
+                    continue;
+                }
+    
+                $sortedTracks = $detail->tracks->sortBy('id')->values();
+    
+                $currentTrack = $sortedTracks->firstWhere('status', 'rejected');
+                if (!$currentTrack) {
+                    $currentTrack = $sortedTracks->firstWhere('status', 'pending');
+                }
+                if (!$currentTrack) {
+                    $currentTrack = $sortedTracks->last();
+                }
+    
+                $currentStep = $currentTrack ? ($stepLabels[$currentTrack->step_name] ?? '') : '';
+    
+                if ($sortedTracks->where('status', 'rejected')->isNotEmpty()) {
+                    $status = 'rejected';
+                    $statusLabel = 'مرفوض';
+                } elseif ($sortedTracks->where('status', 'pending')->isEmpty() && $sortedTracks->where('status', 'approved')->isNotEmpty()) {
+                    $status = 'approved';
+                    $statusLabel = 'مكتمل';
+                } else {
+                    $status = 'pending';
+                    $statusLabel = 'في الانتظار';
+                }
 
-        return view('dashboard.operation_orders.summary', compact('operationOrderDetails', 'stats'));
+                $stageStart = $order->created_at;
+                if ($currentTrack) {
+                    $previousTrack = null;
+                    foreach ($sortedTracks as $t) {
+                        if ($t->id === $currentTrack->id) {
+                            break;
+                        }
+                        $previousTrack = $t;
+                    }
+                    if ($previousTrack) {
+                        $stageStart = $previousTrack->updated_at;
+                    }
+                }
+    
+                $rows[] = [
+                    'id' => $detail->id,
+                    'order_id' => $order->id,
+                    'order_url' => route('dashboard.operation_orders.show', $order->id),
+                    'type' => $order->out_operation ? 'خارجي' : 'داخلي',
+                    'date' => $order->date,
+                    'client_name' => $order->client_name ?? '',
+                    'item_name' => $order->out_operation ? $detail->item_name : optional($detail->item)->name,
+                    'quantity' => $order->out_operation ? $detail->supplie_quantity_used : $detail->old_item_supp_quantity,
+                    'notes' => $order->notes ?? '',
+                    'current_step' => $currentStep,
+                    'status' => $status,
+                    'status_label' => $statusLabel,
+                    'stage_start' => optional($stageStart)->toIso8601String(),
+                ];
+            }
+    
+            if (empty($rows)) {
+                continue;
+            }
+    
+            $machines[] = [
+                'machine_id' => $machineId,
+                'machine_name' => $machine ? $machine->name : '',
+                'rows' => $rows,
+            ];
+        }
+
+        return response()->json(['stats' => $stats, 'machines' => $machines, 'server_time' => now()->toIso8601String()]);
     }
 
     public function create() {
