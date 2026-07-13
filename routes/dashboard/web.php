@@ -65,6 +65,9 @@ Route::group(['prefix' => LaravelLocalization::setLocale(),'middleware' => [ 'lo
             Route::post('operation_orders/{id}/update_out', 'OperationOrderController@updateOut')->name('operation_orders.update_out');
             Route::get('operation_orders/update_is_complete/{id}', 'OperationOrderController@updateIsComplete')->name('operation_orders.update_is_complete');
 
+            Route::get('operation_orders/summary', 'OperationOrderController@summary')->name('operation_orders.summary');
+            Route::get('operation_orders/summary/data', 'OperationOrderController@summaryData')->name('operation_orders.summaryData');
+
             Route::get('operation_orders/complete_out/{id}', 'OperationOrderController@showCompleteOut')->name('operation_orders.showCompleteOut');
             Route::put('operation_orders/complete_out/{id}', 'OperationOrderController@updateCompleteOut')->name('operation_orders.updateCompleteOut');
             Route::post('operation_orders/machine_access/{id}', 'OperationOrderController@machineAccess')->name('operation_orders.machineAccess');
@@ -136,6 +139,7 @@ Route::group(['prefix' => LaravelLocalization::setLocale(),'middleware' => [ 'lo
             Route::get('reports/scraps_report', 'ReportController@scraps_report')->name('reports.scraps_report');
             Route::get('reports/pieces_report', 'ReportController@pieces_report')->name('reports.pieces_report');
             Route::get('reports/machine_supplies_report', 'ReportController@machineSuppliesReport')->name('reports.machine_supplies');
+            Route::get('reports/new_machine_supplies_report', 'ReportController@newMachineSuppliesReport')->name('reports.new_machine_supplies');
             Route::get('reports/confirm_notes_report', 'ReportController@confirmNotesReport')->name('reports.confirm_notes');
             Route::get('reports/operation_order_results', 'ReportController@operationOrderResults')->name('reports.operation_order_results');
             Route::get('reports/employees_performance', 'ReportController@employeesPerformance')->name('reports.employees_performance');

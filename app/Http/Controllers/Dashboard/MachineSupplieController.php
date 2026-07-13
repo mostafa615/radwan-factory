@@ -15,6 +15,7 @@ use App\MachineTypes;
 use App\Branch;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use App\MachineSupplieTrack;
 use App\TrackingMachineSupplies;
 use App\User;
 use Carbon\Carbon;
@@ -102,8 +103,9 @@ class MachineSupplieController extends Controller
         $request_data['transfer_quantity'] = ($request['quantity']);
         $request_data['used'] = ($supplie->used);
 
-
-        $machineSupplie = MachineSupplie::where('machine_id', $request['machine_id'])->where('supplie_id', $request['supplie_id'])->first();
+        $machineSupplie = MachineSupplie::where('machine_id', $request['machine_id'])
+                                        ->where('supplie_id', $request['supplie_id'])
+                                        ->first();
 
         $trackingMachineSupplie = TrackingMachineSupplies::where('date', $request['date'])
             ->where('supplie_id', $request['supplie_id'])
@@ -117,8 +119,6 @@ class MachineSupplieController extends Controller
             'notes' => $request['notes'],
             'type' => 'machine_supplie',
         ]);
-
-
 
         if ($machineSupplie) {
             $new_track->quantity = $supplie->used;
@@ -163,6 +163,14 @@ class MachineSupplieController extends Controller
         $supplie->decrement('quantity', $request->quantity);
         $supplie->save();
 
+        MachineSupplieTrack::create([
+            'type' => 'machine_supplie',
+            'date' => $request->date,
+            'machine_id' => $request->machine_id,
+            'supplie_id' => $request->supplie_id,
+            'quantity' => $request->quantity,
+            'notes' => $request->notes ?? null,
+        ]);
 
         DB::commit();
         session()->flash('success', __('site.added_successfully'));

@@ -651,6 +651,13 @@ class OperationOrderResultController extends Controller
         for ($index = 0; $index < count($usersRespons); $index++) {
             $this->push_notification(['user_id' => $usersRespons[$index], 'url' => url('operation_orders')]);
         }
+    
+        $operationOrderDetail->tracks()->where('step_name', 'machine_manager')->update([
+            'status' => 'approved',
+            'user_id' => auth()->user()->id,
+            'notes' => $request->notes ?? null,
+            'action_at' => now(),
+        ]);
 
         session()->flash('success', __('site.added_successfully'));
         return redirect()->route('dashboard.operation_order_results.index');
@@ -1000,6 +1007,13 @@ class OperationOrderResultController extends Controller
         for ($index = 0; $index < count($usersRespons); $index++) {
             $this->push_notification(['user_id' => $usersRespons[$index], 'url' => url('operation_orders')]);
         }
+    
+        $operationOrderDetail->tracks()->where('step_name', 'machine_manager')->update([
+            'status' => 'approved',
+            'user_id' => auth()->user()->id,
+            'notes' => $request->notes ?? null,
+            'action_at' => now(),
+        ]);
 
         session()->flash('success', __('site.added_successfully'));
         return redirect()->route('dashboard.operation_order_results.index_out');
@@ -1424,6 +1438,15 @@ class OperationOrderResultController extends Controller
                             'user_id' => auth()->user()->id,
                             'confirmed_at' => date('Y-m-d h:i:s'),
                         ]);
+                    
+                    	$operationOrder = OperationOrder::where('id', $resource->operation_order_id)->first();
+                        $orderDetail = OperationOrderDetail::where('id', $resource->order_details_id)->where('operation_order_id', $operationOrder->id)->first();
+                        $orderDetail->tracks()->where('step_name', 'production_manager')->update([
+                            'status' => $res['confirmed'] == 1 ? 'approved' : 'rejected',
+                            'user_id' => auth()->user()->id,
+                            'notes' => $res['confirm_notes'] ?? null,
+                            'action_at' => now(),
+                        ]);
                     }
 
                     if (array_key_exists('store_confirm', $res)) {
@@ -1551,6 +1574,13 @@ class OperationOrderResultController extends Controller
                                 $oldItemQuantity->save();
                             }
                         }
+                    
+                        $orderDetail->tracks()->where('step_name', 'store_manager')->update([
+                            'status' => $res['store_confirm'] == 1 ? 'approved' : 'rejected',
+                            'user_id' => auth()->user()->id,
+                            'notes' => $res['store_confirm_notes'] ?? null,
+                            'action_at' => now(),
+                        ]);
 
                         DB::commit();
                     }
@@ -1609,11 +1639,19 @@ class OperationOrderResultController extends Controller
                         ]);
 
                         $operationOrder = OperationOrder::where('id', $resource->operation_order_id)->first();
+                        $orderDetail = OperationOrderDetail::where('id', $resource->order_details_id)->where('operation_order_id', $operationOrder->id)->first();
                         $operationOrder->update([
                             'out_confirmed' => $res['confirmed'],
                             'confirm_notes' => $res['confirm_notes'],
                             'confirm_user_id' => auth()->user()->id,
                             'confirmed_at' => date('Y-m-d h:i:s'),
+                        ]);
+                    
+                        $orderDetail->tracks()->where('step_name', 'production_manager')->update([
+                            'status' => $res['confirmed'] == 1 ? 'approved' : 'rejected',
+                            'user_id' => auth()->user()->id,
+                            'notes' => $res['confirm_notes'] ?? null,
+                            'action_at' => now(),
                         ]);
                     }
 
@@ -1631,6 +1669,7 @@ class OperationOrderResultController extends Controller
                             ->first();
 
                         $operationOrder = OperationOrder::where('id', $resource->operation_order_id)->first();
+                        $orderDetail = OperationOrderDetail::where('id', $resource->order_details_id)->where('operation_order_id', $operationOrder->id)->first();
                         $orderResultDetails = OperationOrderResultDetail::where('order_results_id', $resource->id)->get();
                         DB::beginTransaction();
 
@@ -1674,6 +1713,13 @@ class OperationOrderResultController extends Controller
                         $resource->update([
                             'store_confirm' => $res['store_confirm'],
                             'store_confirm_notes' => $res['store_confirm_notes'],
+                        ]);
+                    
+                        $orderDetail->tracks()->where('step_name', 'store_manager')->update([
+                            'status' => $res['store_confirm'] == 1 ? 'approved' : 'rejected',
+                            'user_id' => auth()->user()->id,
+                            'notes' => $res['store_confirm_notes'] ?? null,
+                            'action_at' => now(),
                         ]);
 
                         DB::commit();
