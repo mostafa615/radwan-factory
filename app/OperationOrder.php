@@ -114,4 +114,9 @@ class OperationOrder extends Model
         }
         return $query->whereIn('id', $myquery);
     }
+
+    public function tracks()
+    {
+        return $this->hasMany(OperationOrderTrack::class, 'operation_order_id');
+    }
 }

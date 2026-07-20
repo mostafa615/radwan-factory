@@ -63,4 +63,9 @@ class OperationOrderDetail extends Model
     public function inGroup() {
         return $this->belongsTo(Group::class, 'group_id');
     }
+
+    public function tracks()
+    {
+        return $this->hasMany(OperationOrderTrack::class, 'operation_order_detail_id');
+    }
 }

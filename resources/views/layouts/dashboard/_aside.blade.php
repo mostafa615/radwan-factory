@@ -117,6 +117,11 @@
                 @endif
             </ul>
         </li>
+
+        @if (Auth::user()->can('reade_operation_orders'))
+        <li class="{{str_replace(['/',':','.'] , '' , route('dashboard.operation_orders.summary'))}}"><a href="{{route('dashboard.operation_orders.summary')}}"><i class="fa fa-bar-chart"></i> <span> حركات تشغيل التصنيع</span></a></li>
+        @endif
+        
         @if (Auth::user()->role_id == 1 || Auth::user()->role_id == 9 || Auth::user()->can('reports'))
         <li class="{{str_replace(['/',':','.'] , '' , route('dashboard.reports.index'))}}"><a href="{{route('dashboard.reports.index')}}"><i class="fa   fa-bar-chart"></i> <span>  التقارير</span></a></li>
         @endif
