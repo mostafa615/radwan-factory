@@ -6,34 +6,35 @@ use Illuminate\Database\Eloquent\Model;
 
 class Supplies extends Model
 {
-
     protected $table = "supplies";
 
     protected $fillable = [
         'name',
-        'type' ,
-        'store_id' ,
+        'type',
+        'store_id',
         'height',
         'width',
         'init_quantity',
         'quantity',
-        'used' ,
+        'used',
+        'first_balance',
         'description',
-        'created_at','updated_at'
+        'created_at',
+        'updated_at'
     ];
 
-    public function SupplieType(){
+    public function SupplieType()
+    {
         return $this->belongsTo(SupplieTypes::class, 'type');
     }
-    public function Store(){
+
+    public function Store()
+    {
         return $this->belongsTo(Store::class, 'store_id');
     }
 
-
-    public function MachineSupplies(){
+    public function MachineSupplies()
+    {
         return $this->hasMany(MachineSupplie::class, 'supplie_id', 'id');
     }
-
-
-
 }

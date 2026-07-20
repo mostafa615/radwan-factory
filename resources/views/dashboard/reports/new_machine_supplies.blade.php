@@ -27,7 +27,7 @@
                   <td>{{ $supplie->name }}</td>
                   <td>{{ $startDate }}</td>
                   <td>{{ $endDate }}</td>
-                  <td>{{ $supplie->init_quantity }}</td>
+                  <td>{{ $supplie->first_balance }}</td>
                   <td>{{ $initBalance }}</td>
                 </tr>
               </tbody>
@@ -86,7 +86,7 @@
                                 {{ $item->machine_name }}
                               </td>
                               <td class="text-bold">
-                                -{{ $item->quantity }}
+                                {{ $item->quantity }}
                               </td>
                             </tr>
                           @endforeach
@@ -97,7 +97,7 @@
                             <td></td>
                             <td></td>
                             <td class="text-bold">
-                              -{{ $machineSupplies->where('type', 'machine_supplie')->sum('quantity') }}
+                              {{ $machineSupplies->where('type', 'machine_supplie')->sum('quantity') }}
                             </td>
                           </tr>
                         </tfoot>
