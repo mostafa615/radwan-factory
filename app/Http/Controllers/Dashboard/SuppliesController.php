@@ -90,9 +90,8 @@ class SuppliesController extends Controller
         ]);
 
         $request_data = $request->all();
-
+        $request_data['first_balance'] = $request->init_quantity;
         $Supplies = Supplies::create($request_data);
-
 
         session()->flash('success', __('site.added_successfully'));
         return redirect()->route('dashboard.supplies.index');
@@ -119,10 +118,11 @@ class SuppliesController extends Controller
             'quantity' => 'required',
             'description',
         ]);
+
         $supplies = Supplies::find($supplies);
 
         $request_data = $request->all();
-
+        $request_data['first_balance'] = $request->init_quantity;
         $supplies->update($request_data);
 
         session()->flash('success', __('site.updated_successfully'));

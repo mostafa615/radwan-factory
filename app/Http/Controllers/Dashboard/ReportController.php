@@ -126,7 +126,7 @@ class ReportController extends Controller
         $balanceStartDate = $minStartDate->format('Y-m-d');
         $beforeStartDate = Carbon::parse($startDate)->subDay()->format('Y-m-d');
 
-        $initBalance = $supplie->init_quantity;
+        $initBalance = $supplie->first_balance;
 
         $machineSuppliesBeforeRecords = DB::table('machine_supplie_tracks')
                                             ->where('supplie_id', $supplie->id)
