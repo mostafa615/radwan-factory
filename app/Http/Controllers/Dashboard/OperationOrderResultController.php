@@ -539,10 +539,12 @@ class OperationOrderResultController extends Controller
         $operationOrderResult = OperationOrderResult::create($request_data);
         $operationOrder = OperationOrder::where('id', $operationOrderResult->operation_order_id)->first();
         $operationOrderDetail = OperationOrderDetail::where('id', $operationOrderResult->order_details_id)->first();
-        // if(isset($reqeust['supply_quantity']) && isset($reqeust['supply_length'])){
-        //     $operationOrderDetail->supplie_quantity_used = $request['supply_quantity'] * $request['supply_length'];
-        //     $operationOrderDetail->save();
-        // }
+        // حفظ الكمية الفعلية المستخدمة (التي سجّلها مسؤول الماكينة) بدل قيمة الإنشاء،
+        // حتى يُرجَّع نفس المخصوم فعليًا عند رفض/حذف الأمر (سطر 1086 و 793)
+        if (isset($request['supply_quantity']) && isset($request['supply_length'])) {
+            $operationOrderDetail->supplie_quantity_used = $request['supply_quantity'] * $request['supply_length'];
+            $operationOrderDetail->save();
+        }
 
         $machine = Machines::where('id', $operationOrder->machine_id)->first();
 
