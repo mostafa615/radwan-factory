@@ -65,6 +65,18 @@
                             <!--    <input type="number" name="price" class="form-control" value="0">-->
                             <!--</div>-->
 
+                            {{-- The opening quantity belongs to one store. Without this the
+                                 controller wrote the full amount into every store. --}}
+                            <div class="form-group">
+                                <label>المخزن *</label>
+                                <select name="store_id" class="form-control" required>
+                                    <option value="">اختر المخزن</option>
+                                    @foreach ($stores as $store)
+                                        <option value="{{ $store->id }}" {{ old('store_id') == $store->id ? 'selected' : '' }}>{{ $store->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+
                              <div class="form-group">
                                 <label>الكمية *</label>
                                 <input placeholder="الكمية" type="number" step="any" min="0" name="quantity" class="form-control" value="{{old('quantity')??0}}" @if (!auth::user()->hasRole('admin'))

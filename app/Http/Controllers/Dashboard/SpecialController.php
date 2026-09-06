@@ -75,8 +75,9 @@ class SpecialController extends Controller
     public function create()
     {
         $groups = Group::where('id', 62)->get();
+        $stores = Store::get();
 
-        return view('dashboard.specials.create' , compact('groups'));
+        return view('dashboard.specials.create' , compact('groups', 'stores'));
     }
 
     public function store(Request $request)
@@ -87,6 +88,7 @@ class SpecialController extends Controller
             'length' => 'required',
             'width' => 'required',
             'quantity' => 'required',
+            'store_id' => 'required|exists:stores,id',
             'group_id' => 'required',
             'notes' ,
         ], [
@@ -101,14 +103,18 @@ class SpecialController extends Controller
         $Special->code = $Special->id;
         $Special->save();
 
-        $stores=Store::get();
-        foreach ($stores as $store){
+        // The opening quantity belongs to one store, not to every store. This
+        // used to write the full amount into all four, so coding a special size
+        // with 7 pieces registered 28 across the system.
+        $stores = Store::get();
+        foreach ($stores as $store) {
+            $isOwnStore = (int) $store->id === (int) $request->store_id;
             Quantity::create([
                 'ownerable_id' => $store->id,
                 'ownerable_type' => 'App\Models\Store',
                 'item_id' => $Special->id,
-                'quantity' => $request->quantity,
-                'init' => $request->quantity
+                'quantity' => $isOwnStore ? $request->quantity : 0,
+                'init' => $isOwnStore ? $request->quantity : 0,
             ]);
         }
 

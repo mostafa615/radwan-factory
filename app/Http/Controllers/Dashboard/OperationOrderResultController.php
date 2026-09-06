@@ -556,6 +556,25 @@ class OperationOrderResultController extends Controller
         $supplies_id = explode(',', $operationOrderDetail->operation_suplies_id);
 
         /**
+         * التحقق من كفاية كمية كل مستلزم على الماكينة (بلت / غلاف) قبل الخصم
+         * يمنع استلام الأمر وظهور رصيد سالب — نفس آلية الغلاف مطبّقة على كل المستلزمات
+         */
+        if (isset($request['supply_quantity']) && isset($request['supply_length'])) {
+            $required_supply = (float) $request['supply_quantity'] * (float) $request['supply_length'];
+            $machine_supplies_check = MachineSupplie::with('supplie')
+                ->where('machine_id', $operationOrder->machine_id)
+                ->whereIn('supplie_id', $supplies_id)
+                ->get();
+            foreach ($machine_supplies_check as $ms_check) {
+                if ($required_supply > $ms_check->used) {
+                    DB::rollBack();
+                    session()->flash('error', 'انتبه: كمية المستلزم "' . optional($ms_check->supplie)->name . '" على الماكينة غير كافية. المتاح: ' . $ms_check->used . ' — المطلوب: ' . $required_supply);
+                    return back()->withInput();
+                }
+            }
+        }
+
+        /**
          * Tracking Machine supplie
          */
         foreach ($supplies_id as $supplie_id) {
@@ -864,6 +883,13 @@ class OperationOrderResultController extends Controller
             'active' => 0,
         ]);
 
+        // استرجاع: إرجاع الأمر خطوة واحدة للخلف في جدول التصنيع (إعادة فتح آخر مرحلة معتمدة)
+        // مثال: استرجاع السماح → مرحلة "سماح الماكينة" ترجع pending فتظهر "بانتظار السماح" بدل "على الماكينة"
+        $lastApproved = $operation_order_detail->tracks()->where('status', 'approved')->orderBy('id', 'desc')->first();
+        if ($lastApproved) {
+            $lastApproved->update(['status' => 'pending', 'action_at' => null]);
+        }
+
         session()->flash('success', 'تم التعديل بنجاح');
         return redirect()->back();
     }
@@ -901,6 +927,25 @@ class OperationOrderResultController extends Controller
             ->first();
 
         $supplies_id = explode(',', $operationOrderDetail->operation_suplies_id);
+
+        /**
+         * التحقق من كفاية كمية كل مستلزم على الماكينة (بلت / غلاف) قبل الخصم
+         * يمنع استلام الأمر وظهور رصيد سالب — نفس آلية الغلاف مطبّقة على كل المستلزمات
+         */
+        if (isset($request['supply_quantity']) && isset($request['supply_length'])) {
+            $required_supply = (float) $request['supply_quantity'] * (float) $request['supply_length'];
+            $machine_supplies_check = MachineSupplie::with('supplie')
+                ->where('machine_id', $operationOrder->machine_id)
+                ->whereIn('supplie_id', $supplies_id)
+                ->get();
+            foreach ($machine_supplies_check as $ms_check) {
+                if ($required_supply > $ms_check->used) {
+                    DB::rollBack();
+                    session()->flash('error', 'انتبه: كمية المستلزم "' . optional($ms_check->supplie)->name . '" على الماكينة غير كافية. المتاح: ' . $ms_check->used . ' — المطلوب: ' . $required_supply);
+                    return back()->withInput();
+                }
+            }
+        }
 
         /**
          * Tracking Machine supplie
@@ -1452,6 +1497,9 @@ class OperationOrderResultController extends Controller
                     }
 
                     if (array_key_exists('store_confirm', $res)) {
+                        // Captured before the update below overwrites it.
+                        $wasStoreConfirmed = (int) $resource->store_confirm;
+
                         if ($res['store_confirm'] == 'on')
                             $res['store_confirm'] = 1;
                         else
@@ -1471,6 +1519,13 @@ class OperationOrderResultController extends Controller
                         $orderDetail = OperationOrderDetail::where('id', $resource->order_details_id)->where('operation_order_id', $operationOrder->id)->first();
                         // return $orderDetail;
                         DB::beginTransaction();
+
+                        // Stock moves only on the transition into confirmed. Re-submitting an
+                        // already-confirmed result used to run the decrement and increment a
+                        // second time: a production of 7 added 14 to stock and consumed 14 of
+                        // the raw material. 35 results across the history were doubled this way.
+                        $isBecomingConfirmed = ((int) $res['store_confirm'] === 1) && ((int) $wasStoreConfirmed !== 1);
+                        if ($isBecomingConfirmed) {
 
                         //decrement old item quntity
                         if ($resource->old_item_quantity > 0) {
@@ -1577,6 +1632,8 @@ class OperationOrderResultController extends Controller
                             }
                         }
                     
+                        }   // نهاية حماية التأكيد المزدوج
+
                         $orderDetail->tracks()->where('step_name', 'store_manager')->update([
                             'status' => $res['store_confirm'] == 1 ? 'approved' : 'rejected',
                             'user_id' => auth()->user()->id,
@@ -1658,6 +1715,9 @@ class OperationOrderResultController extends Controller
                     }
 
                     if (array_key_exists('store_confirm', $res)) {
+                        // Captured before the update below overwrites it.
+                        $wasStoreConfirmed = (int) $resource->store_confirm;
+
                         if ($res['store_confirm'] == 'on')
                             $res['store_confirm'] = 1;
                         else
@@ -1674,6 +1734,13 @@ class OperationOrderResultController extends Controller
                         $orderDetail = OperationOrderDetail::where('id', $resource->order_details_id)->where('operation_order_id', $operationOrder->id)->first();
                         $orderResultDetails = OperationOrderResultDetail::where('order_results_id', $resource->id)->get();
                         DB::beginTransaction();
+
+                        // Stock moves only on the transition into confirmed. Re-submitting an
+                        // already-confirmed result used to run the decrement and increment a
+                        // second time: a production of 7 added 14 to stock and consumed 14 of
+                        // the raw material. 35 results across the history were doubled this way.
+                        $isBecomingConfirmed = ((int) $res['store_confirm'] === 1) && ((int) $wasStoreConfirmed !== 1);
+                        if ($isBecomingConfirmed) {
 
                         foreach ($orderResultDetails as $orderResultDetail) {
                             if ($orderResultDetail->damage_quantity > 0) {
@@ -1711,12 +1778,14 @@ class OperationOrderResultController extends Controller
                                 }
                             }
                         }
+                        }   // نهاية حماية التأكيد المزدوج
 
                         $resource->update([
                             'store_confirm' => $res['store_confirm'],
                             'store_confirm_notes' => $res['store_confirm_notes'],
                         ]);
                     
+
                         $orderDetail->tracks()->where('step_name', 'store_manager')->update([
                             'status' => $res['store_confirm'] == 1 ? 'approved' : 'rejected',
                             'user_id' => auth()->user()->id,
