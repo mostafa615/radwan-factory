@@ -1,6 +1,6 @@
 @extends('layouts.dashboard.app')
 @section('css')
-  <link rel="stylesheet" href="{{ asset('dashboard/css/custom.css') }}">
+  <link rel="stylesheet" href="{{ asset('dashboard/css/custom.css') }}?v={{ filemtime(public_path('dashboard/css/custom.css')) }}">
 @endsection
 @section('content')
   <div class="content-wrapper summary-ui">
@@ -28,6 +28,17 @@
               </div>
               <div class="stat-icon">
                 <i class="fa fa-align-justify"></i>
+              </div>
+            </div>
+          </div>
+          <div class="stat-card grey">
+            <div class="stat-top">
+              <div>
+                <h3 id="stat-awaiting">0</h3>
+                <span>أوامر منتظرة السماح</span>
+              </div>
+              <div class="stat-icon">
+                <i class="fa fa-lock"></i>
               </div>
             </div>
           </div>
@@ -79,65 +90,76 @@
   <script>
     (function () {
       const DATA_URL = "{{ route('dashboard.operation_orders.summaryData') }}";
+      const SAVE_URL = "{{ route('dashboard.operation_orders.saveScheduleOrder') }}";
+      const TOGGLE_URL = "{{ route('dashboard.operation_orders.toggleMachineVisibility') }}";
+      const CSRF = "{{ csrf_token() }}";
+      // متطلب 1: التحكم/إعادة الترتيب متاح فقط لصاحب صلاحية "التحكم في جدول التصنيع"
+      const CAN_CONTROL = {{ auth()->user()->can('control_manufacturing_schedule') ? 'true' : 'false' }};
       const REFRESH_INTERVAL_MS = 30000; // AJAX poll interval — raise this (e.g. 3000-5000) if the table gets large
-      const ORDER_KEY_PREFIX = 'opSummaryOrder_machine_';
+      const CLIENT_WORD_LIMIT = 2; // اسم العميل: كلمتان كحد أقصى (الباقي في Tooltip)
+      const NOTES_WORD_LIMIT = 3;  // الملاحظات: ثلاث كلمات كحد أقصى (الباقي في Tooltip)
 
       let lastSnapshot = {};
       let sortableInstances = {};
 
-      function getSavedOrder(machineId) {
-        try {
-          return JSON.parse(localStorage.getItem(ORDER_KEY_PREFIX + machineId)) || [];
-        } catch (e) {
-          return [];
+      // متطلب 4: هروب آمن للنص لعرضه داخل الخلية أو سمة title
+      function esc(s) {
+        return String(s ?? '')
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      }
+
+      // عرض أول (limit) كلمة فقط، والنص الكامل يظهر عند الوقوف بالماوس (Tooltip)
+      function clampCell(text, limit) {
+        const full = String(text ?? '').trim();
+        if (!full) return '<td></td>';
+        const words = full.split(/\s+/);
+        if (words.length <= limit) {
+          return `<td>${esc(full)}</td>`;
         }
+        const short = words.slice(0, limit).join(' ') + '…';
+        return `<td title="${esc(full)}" style="cursor:help;">${esc(short)}</td>`;
       }
 
-      function saveOrder(machineId, ids) {
-        localStorage.setItem(ORDER_KEY_PREFIX + machineId, JSON.stringify(ids));
-      }
-
-      function applySavedOrder(machineId, rows) {
-        const saved = getSavedOrder(machineId);
-        if (!saved.length) return rows;
-
-        const byId = {};
-        rows.forEach(r => { byId[r.id] = r; });
-
-        const ordered = [];
-        saved.forEach(id => {
-          if (byId[id]) {
-            ordered.push(byId[id]);
-            delete byId[id];
-          }
+      // متطلب 5: حفظ الترتيب في قاعدة البيانات بدل localStorage
+      function persistOrder(tbody) {
+        const ids = Array.from(tbody.querySelectorAll('tr')).map(tr => tr.dataset.id);
+        $.ajax({
+          url: SAVE_URL,
+          method: 'POST',
+          data: { _token: CSRF, ids: ids },
+          error: function (xhr) { console.error('saveScheduleOrder failed', xhr); },
         });
-        // new rows not part of the saved order yet go at the end
-        Object.values(byId).forEach(r => ordered.push(r));
-
-        return ordered;
       }
 
       function rowHtml(row) {
+        const handle = CAN_CONTROL ? '<span class="drag-handle"><i class="fa fa-bars"></i></span> ' : '';
+        // checkbox "عرض للماكينة" — يظهر لصاحب صلاحية التحكم فقط
+        const checkCell = CAN_CONTROL
+          ? `<td class="machine-check-cell"><input type="checkbox" class="machine-check" data-id="${row.id}" ${row.show_to_machine ? 'checked' : ''}></td>`
+          : '';
         return `
           <tr data-id="${row.id}" data-stage-start="${row.stage_start || ''}">
+            ${checkCell}
             <td>
-              <span class="drag-handle"><i class="fa fa-bars"></i></span>
-              <a href="${row.order_url}" target="_blank" class="order-number">#${row.order_id}</a>
+              ${handle}<a href="${row.order_url}" target="_blank" class="order-number">#${row.order_id}</a>
             </td>
-            <td>${row.type}</td>
-            <td>${row.date ?? ''}</td>
-            <td>${row.client_name ?? ''}</td>
-            <td>${row.item_name ?? ''}</td>
-            <td>${row.quantity ?? ''}</td>
-            <td>${row.notes ?? ''}</td>
+            <td>${esc(row.type)}</td>
+            <td>${esc(row.date)}</td>
+            ${clampCell(row.client_name, CLIENT_WORD_LIMIT)}
+            <td class="material-cell">${esc(row.item_name)}</td>
+            <td class="material-cell">${esc(row.output_item)}</td>
+            <td>${esc(row.quantity)}</td>
+            ${clampCell(row.notes, NOTES_WORD_LIMIT)}
             <td><span class="stage-timer">--:--:--</span></td>
-            <td><span class="step-badge">${row.current_step ?? ''}</span></td>
-            <td><span class="status-badge ${row.status}">${row.status_label}</span></td>
+            <td><span class="step-badge ${row.status}">${esc(row.current_step)}</span></td>
+            <td><span class="status-badge ${row.status}">${esc(row.status_label)}</span></td>
           </tr>`;
       }
 
       function machineHtml(machine) {
-        const rows = applySavedOrder(machine.machine_id, machine.rows).map(rowHtml).join('');
+        // متطلب 5: الصفوف تأتي مرتّبة من السيرفر (قاعدة البيانات) وموحّدة لكل المستخدمين
+        const rows = machine.rows.map(rowHtml).join('');
 
         return `
           <div class="machine-section" data-machine-id="${machine.machine_id}">
@@ -151,11 +173,13 @@
               <table class="modern-table">
                 <thead>
                   <tr>
+                    ${CAN_CONTROL ? '<td class="machine-check-cell">للماكينة</td>' : ''}
                     <td>رقم الأمر</td>
                     <td>التشغيل</td>
                     <td>التاريخ</td>
                     <td>اسم العميل</td>
-                    <td>الخامة المستخدمة</td>
+                    <td class="material-cell">الخامة المستخدمة</td>
+                    <td class="material-cell">الخامة الناتجة</td>
                     <td>عدد</td>
                     <td>ملاحظات</td>
                     <td>المدة</td>
@@ -170,6 +194,8 @@
       }
 
       function initDragAndDrop() {
+        if (!CAN_CONTROL) return; // متطلب 1: إعادة الترتيب متاحة لصاحب صلاحية التحكم فقط
+
         document.querySelectorAll('.machine-section').forEach(section => {
           const machineId = section.dataset.machineId;
           const tbody = section.querySelector('tbody');
@@ -184,8 +210,7 @@
             ghostClass: 'sortable-ghost',
             dragClass: 'sortable-drag',
             onEnd: function () {
-              const ids = Array.from(tbody.querySelectorAll('tr')).map(tr => tr.dataset.id);
-              saveOrder(machineId, ids);
+              persistOrder(tbody); // متطلب 5: حفظ الترتيب في قاعدة البيانات
             },
           });
         });
@@ -214,6 +239,7 @@
 
       function render(data) {
         $('#stat-total').text(data.stats.totalOrders);
+        $('#stat-awaiting').text(data.stats.awaitingOrders);
         $('#stat-completed').text(data.stats.completedOrders);
         $('#stat-pending').text(data.stats.pendingOrders);
         $('#stat-rejected').text(data.stats.rejectedOrders);
@@ -254,6 +280,18 @@
           },
         });
       }
+
+      // حفظ حالة "عرض للماكينة" عند تعليم/إلغاء الـ checkbox (delegated لأن الصفوف تُعاد كل 30 ث)
+      $(document).on('change', '.machine-check', function () {
+        const id = $(this).data('id');
+        const checked = this.checked;
+        $.ajax({
+          url: TOGGLE_URL,
+          method: 'POST',
+          data: { _token: CSRF, id: id, checked: checked ? 1 : 0 },
+          error: function (xhr) { console.error('toggleMachineVisibility failed', xhr); },
+        });
+      });
 
       $(document).ready(function () {
         loadData();

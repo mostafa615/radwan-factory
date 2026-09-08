@@ -33,6 +33,10 @@
   border-top: 4px solid #ef4444;
 }
 
+.summary-ui .stat-card.grey {
+  border-top: 4px solid #374151;
+}
+
 .summary-ui .stat-top {
   display: flex;
   align-items: center;
@@ -78,6 +82,10 @@
 
 .summary-ui .danger .stat-icon {
   background: #ef4444;
+}
+
+.summary-ui .grey .stat-icon {
+  background: #374151;
 }
 
 .summary-ui .machine-section {
@@ -143,6 +151,37 @@
   white-space: nowrap;
 }
 
+/* عمود "عرض للماكينة" (checkbox) — ضيّق لتفادي الاسكرول الأفقي */
+.summary-ui .modern-table .machine-check-cell {
+  text-align: center;
+  padding: 4px 2px;
+  width: 50px;
+  min-width: 50px;
+  max-width: 50px;
+  white-space: normal;
+  word-break: break-word;
+  font-size: 10.5px;
+  line-height: 1.2;
+}
+
+.summary-ui .machine-check {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+/* عمودا الخامة (المستخدمة + الناتجة): عرض محدود ونص يلتفّ على عدة أسطر لتفادي الاسكرول الأفقي */
+.summary-ui .modern-table thead td.material-cell,
+.summary-ui .modern-table tbody td.material-cell {
+  white-space: normal;
+  word-break: break-word;
+  max-width: 150px;
+  min-width: 110px;
+  padding: 8px 10px;
+  line-height: 1.5;
+  font-size: 12.5px;
+}
+
 .summary-ui .modern-table tbody tr:hover td {
   background: #fafcff;
 }
@@ -171,7 +210,7 @@
 }
 
 .summary-ui .step-badge {
-  background: #eef2ff;
+  background: transparent;
   color: #4338ca;
 }
 
@@ -189,6 +228,22 @@
   background: rgba(239, 68, 68, 0.12);
   color: #ef4444;
 }
+
+/* عمود الحالة: badge بخلفية ملوّنة */
+.summary-ui .status-badge.grey  { background: rgba(107, 114, 128, 0.14); color: #4b5563; }
+.summary-ui .status-badge.yellow{ background: rgba(245, 158, 11, 0.16); color: #b45309; }
+.summary-ui .status-badge.purple{ background: rgba(139, 92, 246, 0.14); color: #7c3aed; }
+.summary-ui .status-badge.blue  { background: rgba(59, 130, 246, 0.14); color: #2563eb; }
+.summary-ui .status-badge.green { background: rgba(16, 185, 129, 0.14); color: #059669; }
+.summary-ui .status-badge.red   { background: rgba(239, 68, 68, 0.12); color: #ef4444; }
+
+/* عمود موقع الأمر: نص ملوّن فقط بدون خلفية */
+.summary-ui .step-badge.grey  { color: #4b5563; }
+.summary-ui .step-badge.yellow{ color: #b45309; }
+.summary-ui .step-badge.purple{ color: #7c3aed; }
+.summary-ui .step-badge.blue  { color: #2563eb; }
+.summary-ui .step-badge.green { color: #059669; }
+.summary-ui .step-badge.red   { color: #ef4444; }
 
 @media (max-width: 768px) {
 

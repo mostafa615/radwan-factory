@@ -388,7 +388,7 @@
                             
                             <div class="col-md-4 mb-3">
                                 @if (Auth::user()->can('read_machine_supplie_inventory_reports'))
-                                <button class="btn btn-block btn-info"  data-toggle="modal" data-target="#machineSupplieUsedInventory">تقرير جرد استخدام مستلزمات للمكينة</button>
+                                <button class="btn btn-block btn-info"  data-toggle="modal" data-target="#machineSupplieUsedInventory">تقرير حركة استخدام مستلزمات للمكينة</button>
                                 @endif
                                 <!-- Modal -->
                                 <div id="machineSupplieUsedInventory" class="modal fade" role="dialog">

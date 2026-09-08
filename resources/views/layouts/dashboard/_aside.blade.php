@@ -118,8 +118,8 @@
             </ul>
         </li>
 
-        @if (Auth::user()->can('reade_operation_orders'))
-        <li class="{{str_replace(['/',':','.'] , '' , route('dashboard.operation_orders.summary'))}}"><a href="{{route('dashboard.operation_orders.summary')}}"><i class="fa fa-bar-chart"></i> <span> حركات تشغيل التصنيع</span></a></li>
+        @if (Auth::user()->can('view_manufacturing_schedule') || Auth::user()->can('control_manufacturing_schedule') || Auth::user()->can('machine_schedule'))
+        <li class="{{str_replace(['/',':','.'] , '' , route('dashboard.operation_orders.summary'))}}"><a href="{{route('dashboard.operation_orders.summary')}}"><i class="fa fa-bar-chart"></i> <span>جدول تصنيع مباشر</span></a></li>
         @endif
         
         @if (Auth::user()->role_id == 1 || Auth::user()->role_id == 9 || Auth::user()->can('reports'))

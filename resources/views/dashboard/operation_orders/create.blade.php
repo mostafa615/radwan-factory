@@ -35,6 +35,11 @@
                   <input type="date" name="date" class="form-control datePicker" @if(!auth()->user()->hasRole('admin')) readonly @endif value="{{ old('date', date('Y-m-d')) }}" required>
                   @error('date')<span class="text-danger">{{ $message }}</span>@endif
                 </div>
+                <div class="form-group col-md-12">
+                  <label>اسم العميل <span class="text-danger">*</span></label>
+                  <input type="text" name="client_name" class="form-control" value="{{ old('client_name') }}" placeholder="اسم العميل" required>
+                  @error('client_name')<span class="text-danger">{{ $message }}</span>@endif
+                </div>
                 <div class="form-group col-md-6">
                   <label>@lang('site.machine_types') <span class="text-danger">*</span></label>
                   <select name="machine_type_id" class="form-control select2-js" id="machineType" required>
@@ -230,9 +235,15 @@
 @section('scripts')
   <script>
     function blockButton(btn) {
+      var form = $(btn).closest('form')[0];
+      // تحقق HTML5 أولًا: لو فيه حقل مطلوب فاضي (زي اسم العميل) نعرض التنبيه
+      // ونوقف — من غير إرسال أو مسح البيانات المكتوبة
+      if (form.reportValidity && !form.reportValidity()) {
+        return;
+      }
       $(btn).attr('disabled', 'disabled');
       $(btn).html('<i class="fa fa-spinner fa-spin"></i>');
-      $(btn).closest('form').submit();
+      form.submit();
     }
 
     $("#machineType").change(function() {

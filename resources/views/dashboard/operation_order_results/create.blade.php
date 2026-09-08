@@ -799,25 +799,24 @@
         function submitForm(btn) {
 
             event.preventDefault();
-            var supply_quantity = $('#supply_quantity').val(),
-                check = true,
-                supply_length = $('#supply_length').val();
+            var supply_quantity = parseFloat($('#supply_quantity').val()) || 0,
+                supply_length = parseFloat($('#supply_length').val()) || 0,
+                required = supply_quantity * supply_length,
+                check = true;
+            // لو أي مستلزم (بلت/غلاف) غير كافٍ نمنع الحفظ — بدون إعادة القيمة true بعد كده
             used.forEach((e) => {
-                if ((supply_length * supply_quantity) > e) {
+                if (required > e) {
                     check = false;
-                    $('#supply_errors').show();
-                    $('#supply_errors').delay(3500).fadeOut(350);
-                    return false;
-                    exit();
-                } else {
-                    check = true;
                 }
-            })
-            if (check) {
-                btn.disabled = true;
-                // submit the form
-                btn.form.submit();
+            });
+            if (!check) {
+                $('#supply_errors').show();
+                $('#supply_errors').delay(4000).fadeOut(350);
+                return false;
             }
+            btn.disabled = true;
+            // submit the form
+            btn.form.submit();
         }
     </script>
 @endsection

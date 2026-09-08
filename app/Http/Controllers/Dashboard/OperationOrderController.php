@@ -310,69 +310,121 @@ class OperationOrderController extends Controller
 
     public function summary()
     {
+        // الدخول لصاحب صلاحية العرض أو التحكم أو جدول الماكينة (مسئول الماكينة)
+        if (!auth()->user()->can('view_manufacturing_schedule') && !auth()->user()->can('control_manufacturing_schedule') && !auth()->user()->can('machine_schedule')) {
+            abort(403);
+        }
+
         return view('dashboard.operation_orders.summary');
     }
 
     public function summaryData()
     {
+        // منع جلب البيانات لمن لا يملك أي صلاحية على الجدول
+        if (!auth()->user()->can('view_manufacturing_schedule') && !auth()->user()->can('control_manufacturing_schedule') && !auth()->user()->can('machine_schedule')) {
+            abort(403);
+        }
+
+        // مسئول الماكينة (صلاحية جدول الماكينة فقط) يرى الصفوف المُعلَّم عليها فقط
+        $machineOnly = auth()->user()->can('machine_schedule')
+            && !auth()->user()->can('view_manufacturing_schedule')
+            && !auth()->user()->can('control_manufacturing_schedule');
+
         $baseQuery = OperationOrderDetail::query()
                                         ->whereHas('tracks')
-                                        ->with(['operationOrder.machine', 'operationOrder.tracks', 'item']);
+                                        ->with(['operationOrder.machine', 'operationOrder.tracks', 'tracks', 'item', 'outItem']);
     
         $operationOrderDetails = $baseQuery->get()
                                         ->sortBy(fn ($detail) => optional($detail->operationOrder)->machine_id)
                                         ->values();
     
-        $stats = [
-            'totalOrders' => $operationOrderDetails->pluck('operation_order_id')->unique()->count(),
-            'completedOrders' => $operationOrderDetails
-                ->groupBy('operation_order_id')
-                ->filter(function ($details) {
-                    $tracks = optional($details->first()->operationOrder)->tracks;
-                    return $tracks &&
-                        $tracks->where('status', 'pending')->isEmpty() &&
-                        $tracks->where('status', 'approved')->isNotEmpty() &&
-                        $tracks->where('status', 'rejected')->isEmpty();
-                })
-                ->count(),
-            'rejectedOrders' => $operationOrderDetails
-                ->groupBy('operation_order_id')
-                ->filter(function ($details) {
-                    $tracks = optional($details->first()->operationOrder)->tracks;
-    
-                    return $tracks && $tracks->where('status', 'rejected')->isNotEmpty();
-                })
-                ->count(),
-        ];
-
-        $stats['pendingOrders'] = $stats['totalOrders'] - $stats['completedOrders'] - $stats['rejectedOrders'];
-    
         $today = Carbon::today();
-    
+
+        // الأوامر الظاهرة فعليًا في الجدول: النشطة + المكتملة اليوم فقط
+        // (المكتملة القديمة تُخفى، وبالتالي تقل الأعداد تلقائيًا بعد منتصف الليل)
+        // الرؤية على مستوى البند (detail) — نفس مستوى الصفوف الظاهرة في الجدول:
+        // البند غير المكتمل يظهر دائمًا، والمكتمل يظهر يوم اكتماله فقط ثم يختفي بعد منتصف الليل
         $visibleDetails = $operationOrderDetails->filter(function ($detail) use ($today) {
-            $tracks = optional($detail->operationOrder)->tracks;
-            if (!$tracks) {
+            $tracks = $detail->tracks;
+            if (!$tracks || $tracks->isEmpty()) {
                 return false;
             }
-    
-            $isCompleted = $tracks->where('status', 'pending')->isEmpty() &&
+
+            // لو صلاحية الماكينة ممنوحة نعتبر "سماح الماكينة" معتمدة (نتجاهل الـ track pending بتاعها)
+            $machineAccess = (int) optional($detail->operationOrder)->machine_access === 1;
+            $pendingTracks = $tracks->filter(function ($t) use ($machineAccess) {
+                return $t->status === 'pending' && !($machineAccess && $t->step_name === 'warehouse_supervisor');
+            });
+
+            $isCompleted = $pendingTracks->isEmpty() &&
                 $tracks->where('status', 'approved')->isNotEmpty() &&
                 $tracks->where('status', 'rejected')->isEmpty();
-    
+
             if (!$isCompleted) {
                 return true;
             }
-    
+
             $lastApproval = $tracks->where('status', 'approved')->sortByDesc('updated_at')->first();
-    
+
             return $lastApproval && Carbon::parse($lastApproval->updated_at)->isSameDay($today);
         })->values();
-    
-        $stepLabels = [
-            'warehouse_supervisor' => 'سماح الماكينة',
-            'machine_manager' => 'مشرف الماكينة',
-            'production_manager' => 'مشرف الإنتاج',
-            'store_manager' => 'مشرف المخزن',
+
+        // مسئول الماكينة يرى فقط الصفوف المُعلَّم عليها (show_to_machine = 1)
+        // و التي هو ضمن مستخدميها (user_id بأمر الشغل) — تروح للموظف المحدَّد فقط مش لكل المسئولين
+        if ($machineOnly) {
+            $uid = (string) auth()->user()->id;
+            $visibleDetails = $visibleDetails->filter(function ($detail) use ($uid) {
+                if ((int) $detail->show_to_machine !== 1) {
+                    return false;
+                }
+                $orderUserIds = array_map('trim', explode(',', (string) optional($detail->operationOrder)->user_id));
+                return in_array($uid, $orderUserIds, true);
+            })->values();
+        }
+
+        // الإحصائيات تُحسب من نفس البنود الظاهرة وبنفس تصنيف الصفوف بالضبط، فتتطابق البوكسات مع الجداول
+        // الفئات متنافية ومجموعها = الإجمالي: (منتظرة السماح + قيد المتابعة + مكتملة + مرفوضة)
+        $stats = [
+            'totalOrders'     => 0,
+            'awaitingOrders'  => 0, // منتظرة السماح (المرحلة الأولى: سماح الماكينة)
+            'pendingOrders'   => 0, // قيد المتابعة (بعد السماح ولم يكتمل)
+            'completedOrders' => 0,
+            'rejectedOrders'  => 0,
+        ];
+        foreach ($visibleDetails as $detail) {
+            $tracks = $detail->tracks;
+            $stats['totalOrders']++;
+
+            // لو صلاحية الماكينة ممنوحة (machine_access=1) نعتبر مرحلة "سماح الماكينة" معتمدة
+            // حتى لو الـ track لسه pending (يحصل في مسار إرجاع الأمر الخارجي) — تفادي تعليقه على "بانتظار السماح"
+            $machineAccess  = (int) optional($detail->operationOrder)->machine_access === 1;
+            $pendingTracks  = $tracks->filter(function ($t) use ($machineAccess) {
+                return $t->status === 'pending' && !($machineAccess && $t->step_name === 'warehouse_supervisor');
+            });
+
+            $isRejected  = $tracks->where('status', 'rejected')->isNotEmpty();
+            $isCompleted = $pendingTracks->isEmpty() && $tracks->where('status', 'approved')->isNotEmpty();
+
+            if ($isCompleted) {
+                $stats['completedOrders']++;
+            } elseif ($isRejected) {
+                $stats['rejectedOrders']++;
+            } else {
+                $currentPending = $pendingTracks->sortBy('id')->first();
+                if ($currentPending && $currentPending->step_name === 'warehouse_supervisor') {
+                    $stats['awaitingOrders']++;
+                } else {
+                    $stats['pendingOrders']++;
+                }
+            }
+        }
+
+        // توحيد مسميات وألوان كل مرحلة: [موقع الأمر, الحالة, اللون]
+        $stagePresentation = [
+            'warehouse_supervisor' => ['location' => 'المخزن',       'label' => 'بانتظار السماح', 'color' => 'grey'],
+            'machine_manager'      => ['location' => 'مشرف الماكينة', 'label' => 'على الماكينة',   'color' => 'yellow'],
+            'production_manager'   => ['location' => 'مشرف التصنيع',  'label' => 'منتظر الاعتماد', 'color' => 'purple'],
+            'store_manager'        => ['location' => 'مشرف المخزن',   'label' => 'منتظر الاعتماد', 'color' => 'blue'],
         ];
     
         $machines = [];
@@ -380,7 +432,16 @@ class OperationOrderController extends Controller
         foreach ($visibleDetails->groupBy(fn ($d) => optional($d->operationOrder)->machine_id) as $machineId => $machineDetails) {
             $machine = optional(optional($machineDetails->first())->operationOrder)->machine;
             $rows = [];
-    
+
+            // الترتيب من قاعدة البيانات: الأوامر المُرتَّبة يدويًا (schedule_sort > 0) تظهر أولًا بترتيبها،
+            // والأوامر الجديدة/غير المرتَّبة (schedule_sort = 0) تنزل في الأسفل مرتّبة بالأقدم فالأحدث (الجديد آخر السطر)
+            $machineDetails = $machineDetails->sortBy(function ($d) {
+                $s = (int) $d->schedule_sort;
+                return $s > 0
+                    ? '0_' . str_pad($s, 10, '0', STR_PAD_LEFT)
+                    : '1_' . str_pad($d->id, 10, '0', STR_PAD_LEFT);
+            })->values();
+
             foreach ($machineDetails as $detail) {
                 $order = $detail->operationOrder;
                 if (!$order) {
@@ -388,26 +449,38 @@ class OperationOrderController extends Controller
                 }
     
                 $sortedTracks = $detail->tracks->sortBy('id')->values();
-    
+
+                // لو صلاحية الماكينة ممنوحة نعتبر "سماح الماكينة" معتمدة (نتجاهل الـ track pending بتاعها)
+                $machineAccess = (int) $order->machine_access === 1;
+                $effectivePending = $sortedTracks->filter(function ($t) use ($machineAccess) {
+                    return $t->status === 'pending' && !($machineAccess && $t->step_name === 'warehouse_supervisor');
+                });
+
                 $currentTrack = $sortedTracks->firstWhere('status', 'rejected');
                 if (!$currentTrack) {
-                    $currentTrack = $sortedTracks->firstWhere('status', 'pending');
+                    $currentTrack = $effectivePending->sortBy('id')->first();
                 }
                 if (!$currentTrack) {
                     $currentTrack = $sortedTracks->last();
                 }
-    
-                $currentStep = $currentTrack ? ($stepLabels[$currentTrack->step_name] ?? '') : '';
-    
-                if ($sortedTracks->where('status', 'rejected')->isNotEmpty()) {
-                    $status = 'rejected';
-                    $statusLabel = 'مرفوض';
-                } elseif ($sortedTracks->where('status', 'pending')->isEmpty() && $sortedTracks->where('status', 'approved')->isNotEmpty()) {
-                    $status = 'approved';
-                    $statusLabel = 'مكتمل';
+
+                $stepName    = $currentTrack ? $currentTrack->step_name : '';
+                $isRejected  = $sortedTracks->where('status', 'rejected')->isNotEmpty();
+                $isCompleted = $effectivePending->isEmpty() && $sortedTracks->where('status', 'approved')->isNotEmpty();
+
+                if ($isCompleted) {
+                    $locationLabel = 'استكمل';
+                    $statusLabel   = 'استكمل';
+                    $status        = 'green';
+                } elseif ($isRejected) {
+                    $locationLabel = $stagePresentation[$stepName]['location'] ?? '';
+                    $statusLabel   = 'مرفوض';
+                    $status        = 'red';
                 } else {
-                    $status = 'pending';
-                    $statusLabel = 'في الانتظار';
+                    $pres = $stagePresentation[$stepName] ?? ['location' => '', 'label' => 'في الانتظار', 'color' => 'grey'];
+                    $locationLabel = $pres['location'];
+                    $statusLabel   = $pres['label'];
+                    $status        = $pres['color'];
                 }
 
                 $stageStart = $order->created_at;
@@ -432,11 +505,13 @@ class OperationOrderController extends Controller
                     'date' => $order->date,
                     'client_name' => $order->client_name ?? '',
                     'item_name' => $order->out_operation ? $detail->item_name : optional($detail->item)->name,
-                    'quantity' => $order->out_operation ? $detail->supplie_quantity_used : $detail->old_item_supp_quantity,
+                    'output_item' => $order->out_operation ? $detail->out_item_name : optional($detail->outItem)->name,
+                    'quantity' => $order->out_operation ? $detail->quantity : $detail->old_item_supp_quantity,
                     'notes' => $order->notes ?? '',
-                    'current_step' => $currentStep,
+                    'current_step' => $locationLabel,
                     'status' => $status,
                     'status_label' => $statusLabel,
+                    'show_to_machine' => (int) $detail->show_to_machine === 1,
                     'stage_start' => optional($stageStart)->toIso8601String(),
                 ];
             }
@@ -452,7 +527,63 @@ class OperationOrderController extends Controller
             ];
         }
 
+        // ترتيب الجداول: Cut → Cut to Length → No.4 Sheet → No.4 coil → PVD → Mirror
+        $machineRank = function ($name) {
+            $n = mb_strtolower($name ?? '');
+            if (strpos($n, 'coil') !== false) return 3;                                // No.4 coil
+            if (strpos($n, 'to length') !== false) return 1;                           // Cut to Length
+            if (strpos($n, 'pvd') !== false) return 4;                                 // PVD
+            if (strpos($n, 'mirror') !== false) return 5;                              // Mirror
+            if (strpos($n, 'no4') !== false || strpos($n, 'no.4') !== false) return 2; // No.4 Sheet
+            if (strpos($n, 'cut') !== false) return 0;                                 // Cut
+            return 99;                                                                 // أي ماكينة أخرى في الآخر
+        };
+        usort($machines, function ($a, $b) use ($machineRank) {
+            return $machineRank($a['machine_name']) <=> $machineRank($b['machine_name']);
+        });
+
         return response()->json(['stats' => $stats, 'machines' => $machines, 'server_time' => now()->toIso8601String()]);
+    }
+
+    // متطلب 5: حفظ ترتيب الجدول في قاعدة البيانات — لصاحب صلاحية التحكم فقط
+    public function saveScheduleOrder(Request $request)
+    {
+        if (!auth()->user()->can('control_manufacturing_schedule')) {
+            abort(403);
+        }
+
+        $request->validate([
+            'ids'   => 'required|array',
+            'ids.*' => 'integer',
+        ]);
+
+        // ترتيب 1-based: الصف المُرتَّب ياخد قيمة >= 1 (عشان نميّزه عن الجديد اللي قيمته 0)
+        foreach (array_values($request->ids) as $index => $detailId) {
+            OperationOrderDetail::where('id', $detailId)->update(['schedule_sort' => $index + 1]);
+        }
+
+        return response()->json(['success' => true]);
+    }
+
+    // تعليم/إلغاء إظهار الصف لمسئول الماكينة — لصاحب صلاحية التحكم فقط
+    public function toggleMachineVisibility(Request $request)
+    {
+        if (!auth()->user()->can('control_manufacturing_schedule')) {
+            abort(403);
+        }
+
+        $request->validate([
+            'id'      => 'required|integer',
+            'checked' => 'required|boolean',
+        ]);
+
+        // ملاحظة: Request::boolean() غير موجودة في Laravel 5.8، نستخدم filter_var بدلًا منها
+        $checked = filter_var($request->input('checked'), FILTER_VALIDATE_BOOLEAN);
+
+        OperationOrderDetail::where('id', $request->id)
+            ->update(['show_to_machine' => $checked ? 1 : 0]);
+
+        return response()->json(['success' => true]);
     }
 
     public function create() {
@@ -467,6 +598,7 @@ class OperationOrderController extends Controller
     public function store(Request $request) {
         $request->validate([
             'date'               => 'required',
+            'client_name'        => 'required',
             'machine_type_id'    => 'required',
             'machine_id'         => 'required',
             'user_id'            => 'required',
@@ -485,7 +617,7 @@ class OperationOrderController extends Controller
         $store = DB::table('stores')->where('id', $machine->store_id)->select(['id', 'name'])->first();
 
         $requestData = $request->only([
-            'date', 'machine_type_id', 'machine_id', 'user_id', 'supervisor_store', 'supervisor_process', 'notes'
+            'date', 'client_name', 'machine_type_id', 'machine_id', 'user_id', 'supervisor_store', 'supervisor_process', 'notes'
         ]);
 
         if(!empty($request['user_id'])) {
@@ -630,6 +762,7 @@ class OperationOrderController extends Controller
     public function update(Request $request, $id) {
         $request->validate([
             'date'                     => 'required',
+            'client_name'              => 'required',
             'machine_type_id'          => 'required',
             'machine_id'               => 'nullable',
             'user_id'                  => 'required',
@@ -647,9 +780,9 @@ class OperationOrderController extends Controller
         ]);
     
         $operationOrder = OperationOrder::find($id);
-       
+
         $requestData = $request->only([
-            'date', 'machine_type_id', 'machine_id', 'user_id', 'supervisor_store', 'supervisor_process', 'notes'
+            'date', 'client_name', 'machine_type_id', 'machine_id', 'user_id', 'supervisor_store', 'supervisor_process', 'notes'
         ]);
     
         if (!empty($request['user_id'])) {
@@ -739,6 +872,15 @@ class OperationOrderController extends Controller
                             'supplie_quantity_pre_used' => $suppliesused,
                         ]);
                     }
+
+                    // إنشاء مراحل الاعتماد (tracks) للبند الجديد المُضاف أثناء التعديل —
+                    // بدونها لا يظهر الأمر في جدول التصنيع المباشر (whereHas tracks)
+                    $orderDetailCreate->tracks()->createMany([
+                        ['operation_order_id' => $operationOrder->id, 'step_name' => 'warehouse_supervisor'],
+                        ['operation_order_id' => $operationOrder->id, 'step_name' => 'machine_manager'],
+                        ['operation_order_id' => $operationOrder->id, 'step_name' => 'production_manager'],
+                        ['operation_order_id' => $operationOrder->id, 'step_name' => 'store_manager'],
+                    ]);
                 }
                 else if (!empty($request->operation_order_detail_id[$counter])) {
                     OperationOrderDetail::where('id', $request->operation_order_detail_id[$counter])->update([
@@ -901,6 +1043,10 @@ class OperationOrderController extends Controller
                 }
 
                 $orderDetailCreate->tracks()->createMany([
+                    [
+                        'operation_order_id' => $operationOrder->id,
+                        'step_name' => 'warehouse_supervisor',
+                    ],
                     [
                         'operation_order_id' => $operationOrder->id,
                         'step_name' => 'machine_manager',
@@ -1299,7 +1445,8 @@ class OperationOrderController extends Controller
         }
 
         $operationOrder->update(['is_complete' => 1, 'created_by' => auth()->user()->id]);
-        $operationOrder->update(['machine_access' => 1]);
+        // ملاحظة: لم نعد نمنح صلاحية الماكينة هنا — الأمر يقف عند "بانتظار السماح"
+        // لحد ما مسئول المخزن يدوس "سماح للماكينة" (زي الداخلي)
         $operationOrder->update($request_data);
 
         if (isset($request['user_id'])) {
@@ -1635,6 +1782,15 @@ class OperationOrderController extends Controller
                         ]);
                     }
 
+                    // إنشاء مراحل الاعتماد (tracks) للبند الجديد المُضاف أثناء التعديل —
+                    // بدونها لا يظهر الأمر في جدول التصنيع المباشر
+                    $orderDetailCreate->tracks()->createMany([
+                        ['operation_order_id' => $operationOrder->id, 'step_name' => 'warehouse_supervisor'],
+                        ['operation_order_id' => $operationOrder->id, 'step_name' => 'machine_manager'],
+                        ['operation_order_id' => $operationOrder->id, 'step_name' => 'production_manager'],
+                        ['operation_order_id' => $operationOrder->id, 'step_name' => 'store_manager'],
+                    ]);
+
                 } else {
                     // Update existing detail
                     $updateData = [
@@ -1969,6 +2125,14 @@ class OperationOrderController extends Controller
             'machine_edit' => 0,
             'machine_access' => 0  // Reset machine access when rolling back
         ]);
+
+        // تراجع: إرجاع كل بند خطوة واحدة للخلف (إعادة فتح آخر مرحلة معتمدة) لتنعكس الحالة في جدول التصنيع
+        foreach ($operationOrder->operationOrderDetails as $rbDetail) {
+            $lastApproved = $rbDetail->tracks()->where('status', 'approved')->orderBy('id', 'desc')->first();
+            if ($lastApproved) {
+                $lastApproved->update(['status' => 'pending', 'action_at' => null]);
+            }
+        }
 
         // Log the action for audit trail
         \Log::info('Operation order ' . $id . ' rolled back to edit mode by user ' . auth()->user()->id);

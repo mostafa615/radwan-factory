@@ -47,6 +47,11 @@
                   <input type="date" name="date" class="form-control datePicker" @if(!auth()->user()->hasRole('admin')) readonly @endif value="{{ $operationOrder->date }}">
                   @error('date')<span class="text-danger">{{ $message }}</span>@endif
                 </div>
+                <div class="form-group col-md-12">
+                  <label>اسم العميل <span class="text-danger">*</span></label>
+                  <input type="text" name="client_name" class="form-control" value="{{ old('client_name', $operationOrder->client_name) }}" placeholder="اسم العميل" required>
+                  @error('client_name')<span class="text-danger">{{ $message }}</span>@endif
+                </div>
                 <div class="form-group col-md-6">
                   <label>@lang('site.machine_types') <span class="text-danger">*</span></label>
                   <select name="machine_type_id" class="form-control select2-js" required>

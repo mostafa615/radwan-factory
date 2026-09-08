@@ -83,13 +83,13 @@
 @endif
 
 @if (Auth::user()->hasRole('store_factor_response') || Auth::user()->hasRole('admin'))
-    @if (!$operationOrder->out_operation && !$operationOrder->machine_access)
+    @if (!$operationOrder->machine_access && (!$operationOrder->out_operation || $operationOrder->is_complete == 1))
         <a href="#" class="btn btn-sm {{ $operationOrder->machine_edit == 1 ? 'btn-warning' : 'btn-success' }}"
-            style="display: block;" data-toggle="modal" data-target="#machineAccess{{ $i }}"
+            style="display: block;" data-toggle="modal" data-target="#machineAccess{{ $operationOrder->id }}"
             data-id="{{ $operationOrder->id }}">سماح للماكينة</a>
 
         {{-- machine access modal --}}
-        <div id="machineAccess{{ $i }}" class="modal fade text-right" role="dialog">
+        <div id="machineAccess{{ $operationOrder->id }}" class="modal fade text-right" role="dialog">
             <div class="modal-dialog">
                 <div class="modal-content">
                     <div class="modal-header">

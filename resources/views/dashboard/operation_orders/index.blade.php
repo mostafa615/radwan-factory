@@ -40,6 +40,7 @@
                                     <tr>
                                         <th>#</th>
                                         <!--<th>أمر شغل سابق</th>-->
+                                        <th>اسم العميل</th>
                                         <th>الآلة</th>
                                         <th>المستخدمين</th>
                                         <th>مشرف المخزن</th>
@@ -95,6 +96,7 @@
                 "columns":[
                 { "data": "id" },
                 // { "data": "related_operat_ord_id" },
+                { "data": "client_name" },
                 { "data": "machine_id" ,    "name": "machine.name"},
                 { "data": "user_id" ,   "name": "user.name"},
                 { "data": "supervisor_store"},

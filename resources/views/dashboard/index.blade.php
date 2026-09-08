@@ -28,9 +28,9 @@
                             <li class="active"><a href="#dash" data-toggle="tab">@lang('site.dashboard')</a></li>
                             {{-- <li><a href="#activity" data-toggle="tab">@lang('site.activity')</a></li> --}}
                             <li><a href="#loginHistory" data-toggle="tab">@lang('site.login_proccess')</a></li>
-                            <li><a href="#settings" data-toggle="tab">@lang('site.settings')</a></li>
-                            <li><a href="#password" data-toggle="tab">@lang('site.change_password')</a></li>
-                            <li><a href="#phone" data-toggle="tab">@lang('site.change_phone')</a></li>
+                            <!-- <li><a href="#settings" data-toggle="tab">@lang('site.settings')</a></li> -->
+                            <!-- <li><a href="#password" data-toggle="tab">@lang('site.change_password')</a></li> -->
+                            <!-- <li><a href="#phone" data-toggle="tab">@lang('site.change_phone')</a></li> -->
                           </ul>
                           <div class="tab-content">
 
