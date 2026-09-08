@@ -116,7 +116,7 @@ class ReportController extends Controller
             'date_to' => 'required|date|after_or_equal:date_from',
         ]);
 
-        $minStartDate = Carbon::create(2026, 6, 29);
+        $minStartDate = Carbon::create(2026, 7, 18);
         $requestStartDate = Carbon::parse($request->date_from);
         $startDate = $requestStartDate->lessThan($minStartDate) ? $minStartDate->format('Y-m-d') : $requestStartDate->format('Y-m-d');
         $endDate = Carbon::parse($request->date_to)->format('Y-m-d');
