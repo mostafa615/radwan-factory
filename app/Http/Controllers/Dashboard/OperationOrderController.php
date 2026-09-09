@@ -484,7 +484,14 @@ class OperationOrderController extends Controller
                 }
 
                 $stageStart = $order->created_at;
-                if ($currentTrack) {
+                if ($isCompleted) {
+                    // الأمر مكتمل: عدّاد "المدة" يبدأ من لحظة الاكتمال نفسها (آخر اعتماد فعلي)
+                    // بدل المرحلة التي قبلها — حتى يبدأ من الصفر عند الاكتمال ولا يتجاوز 24 ساعة قبل الإخفاء
+                    $lastApprovedTrack = $sortedTracks->where('status', 'approved')->sortByDesc('updated_at')->first();
+                    if ($lastApprovedTrack) {
+                        $stageStart = $lastApprovedTrack->updated_at;
+                    }
+                } elseif ($currentTrack) {
                     $previousTrack = null;
                     foreach ($sortedTracks as $t) {
                         if ($t->id === $currentTrack->id) {
