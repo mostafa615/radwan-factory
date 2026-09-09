@@ -14,6 +14,8 @@
                             <td>الماكينه</td>
                             <td>المستلزم</td>
                             <td>باقى الاستخدام</td>
+                            <td>الرصيد الافتتاحي <small>({{ $openingDate }})</small></td>
+                            <td>رصيد بداية المدة <small>({{ $periodStartDate }})</small></td>
                             <td>التاريخ من </td>
                             <td>التاريخ الى</td>
                         </tr>
@@ -21,6 +23,8 @@
                             <td>{{ App\Machines::where('id', $machine_supplie->machine_id)->first()->name }}</td>
                             <td>{{ App\Supplies::where('id', $machine_supplie->supplie_id)->first()->name }}</td>
                             <td>{{ $machine_supplie->used }}</td>
+                            <td>{{ number_format($openingBalance, 2, '.', '') }}</td>
+                            <td>{{ number_format($periodStartBalance, 2, '.', '') }}</td>
                             <td>{{ $request->date_from }}</td>
                             <td>{{ $request->date_to }}</td>
                         </tr>
@@ -255,17 +259,19 @@
                                             <tr class="amount-row" date-data={{ $date }}>
                                                 <td>{{ $date }}</td>
                                                 @php
-                                                    $init_quantity = $index != 0 ? $test[$index - 1] ?? 0 : $init_quantities[$index] ?? 0;
+                                                    // الرصيد الافتتاحي لأول يوم = القيمة المثبّتة على used، وبعده = رصيد نهاية اليوم السابق
+                                                    $init_quantity = $index != 0 ? ($test[$index - 1] ?? 0) : $openingBalance;
                                                 @endphp
                                                 <td class="init">
-                                                    {{ $index != 0 ? $test[$index - 1] ?? 0 : $init_quantities[$index] ?? 0 }}
+                                                    {{ number_format($init_quantity, 2, '.', '') }}
+                                                </td>
                                                 <td class="order_in">{{ $order_operation_orders_in[$index] ?? 0 }}</td>
                                                 <td class="order_out">{{ $order_operation_orders_out[$index] ?? 0 }}</td>
                                                 <td class="ex_from">{{ $exchanges_from[$index] ?? 0 }}</td>
                                                 <td class="ex_to">{{ $exchanges_to[$index] ?? 0 }}</td>
 
                                                 <td class="machine_supplie">{{ $order_machine_supplies[$index] ?? 0 }}</td>
-                                                <td class="last">{{ $test[] = $quantity + $init_quantity ?? 0 }}
+                                                <td class="last">{{ number_format($test[] = round($quantity + $init_quantity, 2), 2, '.', '') }}
                                                 </td>
                                             </tr>
                                         @empty
@@ -311,6 +317,7 @@
             paging: true,
             serverSide: false,
             dom: 'Bfrtip',
+            order: [[0, 'desc']], // ترتيب بالتاريخ الأحدث أولاً (الأرصدة محسوبة مسبقًا كنص ثابت فلا تتأثر)
             buttons: [
                 'copy', 'csv', 'excel', 'pdf', 'print'
             ],

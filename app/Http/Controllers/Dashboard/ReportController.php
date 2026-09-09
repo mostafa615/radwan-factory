@@ -595,7 +595,36 @@ class ReportController extends Controller
 
         // return $order_machine_supplies;
 
-        return view('dashboard.reports.machine_supplies_used_inventory', compact('operation_orders_in', 'operation_orders_out', 'exchange_from', 'exchange_to', 'machine_supplies', 'machine_supplie', 'order_operation_orders_in', 'order_operation_orders_out', 'order_machine_supplies', 'dates', 'init_quantities', 'last_quantities', 'exchanges_from', 'exchanges_to', 'dates_array','request'));
+        // مطابقة الرصيد التراكمي للقيمة المعتمدة (باقى الاستخدام = machine_supplies.used):
+        // جدول التتبع (tracking_machine_supplies) بدأ التسجيل في تاريخ لاحق لإنشاء الماكينة،
+        // فالرصيد الذي كان موجودًا قبل أول سجل تتبع غير مُدوَّن. نستنتج هذا الرصيد الافتتاحي
+        // من العلاقة: used = الرصيد الافتتاحي + مجموع كل الحركات. فنجعل الافتتاحي = used - مجموع الحركات،
+        // ليطابق الرصيد التراكمي القيمة المعتمدة used في آخر يوم بالضبط.
+        $totalDelta = array_sum($order_operation_orders_in) + array_sum($order_operation_orders_out)
+            + array_sum($exchanges_from) + array_sum($exchanges_to) + array_sum($order_machine_supplies);
+        $openingBalance = $machine_supplie->used - $totalDelta;
+
+        // تاريخ الرصيد الافتتاحي = أول تاريخ في سجل الحركات (بداية التتبع)
+        $openingDate = $dates_array[0] ?? Carbon::parse($request['date_from'])->format('Y-m-d');
+
+        // رصيد بداية المدة = الرصيد الداخل لأول يوم واقع داخل النطاق المطلوب (date_from)
+        $fromDateStr = Carbon::parse($request['date_from'])->format('Y-m-d');
+        $periodStartBalance = $openingBalance;
+        $periodStartDate = $fromDateStr;
+        $runningBalance = $openingBalance;
+        $periodStartSet = false;
+        foreach ($dates_array as $i => $d) {
+            $dayDelta = ($order_operation_orders_in[$i] ?? 0) + ($order_operation_orders_out[$i] ?? 0)
+                + ($exchanges_from[$i] ?? 0) + ($exchanges_to[$i] ?? 0) + ($order_machine_supplies[$i] ?? 0);
+            if (!$periodStartSet && $d >= $fromDateStr) {
+                $periodStartBalance = $runningBalance;
+                $periodStartDate = $d;
+                $periodStartSet = true;
+            }
+            $runningBalance += $dayDelta;
+        }
+
+        return view('dashboard.reports.machine_supplies_used_inventory', compact('operation_orders_in', 'operation_orders_out', 'exchange_from', 'exchange_to', 'machine_supplies', 'machine_supplie', 'order_operation_orders_in', 'order_operation_orders_out', 'order_machine_supplies', 'dates', 'init_quantities', 'last_quantities', 'exchanges_from', 'exchanges_to', 'dates_array', 'openingBalance', 'periodStartBalance', 'openingDate', 'periodStartDate', 'request'));
     }
     
     
