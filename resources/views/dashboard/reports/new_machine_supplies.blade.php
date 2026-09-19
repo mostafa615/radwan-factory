@@ -18,8 +18,8 @@
                   <th>اسم المستلزم</th>
                   <th>من تاريخ</th>
                   <th>الى تاريخ</th>
-                  <th>الرصيد الافتتاحي</th>
-                  <th>رصيد بداية المدة</th>
+                  <th>الرصيد الافتتاحي <small>({{ $balanceStartDate }})</small></th>
+                  <th>رصيد بداية المدة <small>({{ $startDate }})</small></th>
                 </tr>
               </thead>
               <tbody>
@@ -273,12 +273,34 @@
                     </div>
                   </div>
                   <div class="tab-pane" id="supplieSummary">
+                    @php
+                      $closingBalance = $initBalance + $supplieSummary->sum('quantity');
+                    @endphp
+                    <div class="table-responsive">
+                      <table class="table table-bordered text-center" style="max-width:700px;margin:0 auto 15px;">
+                        <tbody>
+                          <tr>
+                            <th style="background:#f5f5f5;">الرصيد الافتتاحي <small>({{ $balanceStartDate }})</small></th>
+                            <td class="text-bold">{{ $supplie->first_balance }}</td>
+                          </tr>
+                          <tr>
+                            <th style="background:#f5f5f5;">رصيد بداية المدة <small>({{ $startDate }})</small></th>
+                            <td class="text-bold">{{ $initBalance }}</td>
+                          </tr>
+                          <tr>
+                            <th style="background:#f5f5f5;">الرصيد الحالي <small>({{ $endDate }})</small></th>
+                            <td class="text-bold">{{ $closingBalance }}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
                     <div class="table-responsive">
                       <table class="table table-bordered table-striped table-hover text-center">
                         <thead>
                           <tr>
                             <th>التاريخ</th>
-                            <th>حركة المستلزم</th>
+                            <th>صرف الالات</th>
+                            <th>تحويل الالات</th>
                             <th>فاتورة بيع</th>
                             <th>مرتجع بيع</th>
                             <th>فاتورة شراء</th>
@@ -300,6 +322,9 @@
                               </td>
                               <td>
                                 {{ $item['machine_supplie'] > 0 ? '+' . $item['machine_supplie'] : $item['machine_supplie'] }}
+                              </td>
+                              <td>
+                                {{ $item['exchange'] > 0 ? '+' . $item['exchange'] : $item['exchange'] }}
                               </td>
                               <td>
                                 {{ $item['orders_in'] != 0 ? $item['orders_in'] : 0 }}

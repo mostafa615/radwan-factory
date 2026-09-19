@@ -283,28 +283,31 @@ class ReportController extends Controller
         $summary = collect();
 
         foreach ($machineSupplies as $item) {
-            $quantity = 0;
+            // فصل "صرف الالات" عن "تحويل الالات" في عمودين مستقلين بحساب مجمع
+            $machineSupplieQty = 0; // صرف الالات
+            $exchangeQty = 0;       // تحويل الالات
 
             if ($item->type == 'machine_supplie') {
-                $quantity = -$item->quantity;
+                $machineSupplieQty = -$item->quantity;
             }
 
             if ($item->type == 'exchange_in') {
-                $quantity = -$item->quantity;
+                $exchangeQty = -$item->quantity;
             }
 
             if ($item->type == 'exchange_out') {
-                $quantity = $item->quantity;
+                $exchangeQty = $item->quantity;
             }
 
             $summary->push([
                 'date' => $item->date,
-                'machine_supplie' => $quantity,
+                'machine_supplie' => $machineSupplieQty,
+                'exchange' => $exchangeQty,
                 'orders_in' => 0,
                 'orders_in_return' => 0,
                 'orders_out' => 0,
                 'orders_out_return' => 0,
-                'quantity' => $quantity,
+                'quantity' => $machineSupplieQty + $exchangeQty,
             ]);
         }
 
@@ -312,6 +315,7 @@ class ReportController extends Controller
             $summary->push([
                 'date' => $item->date,
                 'machine_supplie' => 0,
+                'exchange' => 0,
                 'orders_in' => -$item->quantity,
                 'orders_in_return' => 0,
                 'orders_out' => 0,
@@ -324,6 +328,7 @@ class ReportController extends Controller
             $summary->push([
                 'date' => $item->date,
                 'machine_supplie' => 0,
+                'exchange' => 0,
                 'orders_in' => 0,
                 'orders_in_return' => $item->quantity,
                 'orders_out' => 0,
@@ -336,6 +341,7 @@ class ReportController extends Controller
             $summary->push([
                 'date' => $item->date,
                 'machine_supplie' => 0,
+                'exchange' => 0,
                 'orders_in' => 0,
                 'orders_in_return' => 0,
                 'orders_out' => $item->quantity,
@@ -348,6 +354,7 @@ class ReportController extends Controller
             $summary->push([
                 'date' => $item->date,
                 'machine_supplie' => 0,
+                'exchange' => 0,
                 'orders_in' => 0,
                 'orders_in_return' => 0,
                 'orders_out' => 0,
@@ -363,6 +370,7 @@ class ReportController extends Controller
                                         return [
                                             'date' => $date,
                                             'machine_supplie' => $items->sum('machine_supplie'),
+                                            'exchange' => $items->sum('exchange'),
                                             'orders_in' => $items->sum('orders_in'),
                                             'orders_in_return' => $items->sum('orders_in_return'),
                                             'orders_out' => $items->sum('orders_out'),
@@ -373,7 +381,7 @@ class ReportController extends Controller
                                     ->sortBy('date')
                                     ->values();
 
-        return view('dashboard.reports.new_machine_supplies', compact('supplie', 'machineSupplies', 'ordersIn', 'ordersInReturn', 'ordersOut', 'ordersOutReturn', 'supplieSummary', 'startDate', 'endDate', 'initBalance'));
+        return view('dashboard.reports.new_machine_supplies', compact('supplie', 'machineSupplies', 'ordersIn', 'ordersInReturn', 'ordersOut', 'ordersOutReturn', 'supplieSummary', 'startDate', 'endDate', 'initBalance', 'balanceStartDate'));
     }
 
     public function machineSupplieInventory(Request $request)
