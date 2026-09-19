@@ -350,10 +350,15 @@ class OperationOrderController extends Controller
                 return false;
             }
 
-            // لو صلاحية الماكينة ممنوحة نعتبر "سماح الماكينة" معتمدة (نتجاهل الـ track pending بتاعها)
+            // سماح الماكينة يُعتبر محلولًا لو machine_access=1، أو لو بدأت مرحلة لاحقة فعلاً
+            // (أي خطوة غير المخزن معتمدة) — فلا نُبقي "بانتظار السماح" لأمر خلصت الماكينة شغله فيه.
+            // يعالج تعليق الأمر الخارجي بعد التراجع (machine_access=0 يكشف warehouse معلّق لم يُعتمد أصلاً).
             $machineAccess = (int) optional($detail->operationOrder)->machine_access === 1;
-            $pendingTracks = $tracks->filter(function ($t) use ($machineAccess) {
-                return $t->status === 'pending' && !($machineAccess && $t->step_name === 'warehouse_supervisor');
+            $warehouseResolved = $machineAccess || $tracks->contains(function ($t) {
+                return $t->status === 'approved' && $t->step_name !== 'warehouse_supervisor';
+            });
+            $pendingTracks = $tracks->filter(function ($t) use ($warehouseResolved) {
+                return $t->status === 'pending' && !($warehouseResolved && $t->step_name === 'warehouse_supervisor');
             });
 
             $isCompleted = $pendingTracks->isEmpty() &&
@@ -395,11 +400,14 @@ class OperationOrderController extends Controller
             $tracks = $detail->tracks;
             $stats['totalOrders']++;
 
-            // لو صلاحية الماكينة ممنوحة (machine_access=1) نعتبر مرحلة "سماح الماكينة" معتمدة
+            // سماح الماكينة محلول لو machine_access=1 أو بدأت مرحلة لاحقة فعلاً (أي خطوة غير المخزن معتمدة)
             // حتى لو الـ track لسه pending (يحصل في مسار إرجاع الأمر الخارجي) — تفادي تعليقه على "بانتظار السماح"
             $machineAccess  = (int) optional($detail->operationOrder)->machine_access === 1;
-            $pendingTracks  = $tracks->filter(function ($t) use ($machineAccess) {
-                return $t->status === 'pending' && !($machineAccess && $t->step_name === 'warehouse_supervisor');
+            $warehouseResolved = $machineAccess || $tracks->contains(function ($t) {
+                return $t->status === 'approved' && $t->step_name !== 'warehouse_supervisor';
+            });
+            $pendingTracks  = $tracks->filter(function ($t) use ($warehouseResolved) {
+                return $t->status === 'pending' && !($warehouseResolved && $t->step_name === 'warehouse_supervisor');
             });
 
             $isRejected  = $tracks->where('status', 'rejected')->isNotEmpty();
@@ -451,9 +459,13 @@ class OperationOrderController extends Controller
                 $sortedTracks = $detail->tracks->sortBy('id')->values();
 
                 // لو صلاحية الماكينة ممنوحة نعتبر "سماح الماكينة" معتمدة (نتجاهل الـ track pending بتاعها)
+                // سماح الماكينة محلول لو machine_access=1 أو بدأت مرحلة لاحقة فعلاً (أي خطوة غير المخزن معتمدة)
                 $machineAccess = (int) $order->machine_access === 1;
-                $effectivePending = $sortedTracks->filter(function ($t) use ($machineAccess) {
-                    return $t->status === 'pending' && !($machineAccess && $t->step_name === 'warehouse_supervisor');
+                $warehouseResolved = $machineAccess || $sortedTracks->contains(function ($t) {
+                    return $t->status === 'approved' && $t->step_name !== 'warehouse_supervisor';
+                });
+                $effectivePending = $sortedTracks->filter(function ($t) use ($warehouseResolved) {
+                    return $t->status === 'pending' && !($warehouseResolved && $t->step_name === 'warehouse_supervisor');
                 });
 
                 $currentTrack = $sortedTracks->firstWhere('status', 'rejected');
