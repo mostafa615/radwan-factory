@@ -615,24 +615,50 @@ class ReportController extends Controller
         // تاريخ الرصيد الافتتاحي = أول تاريخ في سجل الحركات (بداية التتبع)
         $openingDate = $dates_array[0] ?? Carbon::parse($request['date_from'])->format('Y-m-d');
 
-        // رصيد بداية المدة = الرصيد الداخل لأول يوم واقع داخل النطاق المطلوب (date_from)
+        // بناء صفوف "حساب مجمع" للفترة المختارة فقط [date_from, date_to]:
+        // الرصيد التراكمي يُحسب من كامل التاريخ (ليحمل الرصيد الصحيح للفترة)، لكن تُعرض أيام الفترة فقط.
+        // رصيد بداية المدة = الرصيد الداخل لأول يوم داخل الفترة، ورصيد نهاية المدة = الرصيد بعد آخر يوم فيها.
         $fromDateStr = Carbon::parse($request['date_from'])->format('Y-m-d');
+        $toDateStr = Carbon::parse($request['date_to'])->format('Y-m-d');
         $periodStartBalance = $openingBalance;
         $periodStartDate = $fromDateStr;
+        $periodEndBalance = $openingBalance;
+        $periodEndDate = $toDateStr;
         $runningBalance = $openingBalance;
         $periodStartSet = false;
+        $summaryRows = [];
         foreach ($dates_array as $i => $d) {
-            $dayDelta = ($order_operation_orders_in[$i] ?? 0) + ($order_operation_orders_out[$i] ?? 0)
-                + ($exchanges_from[$i] ?? 0) + ($exchanges_to[$i] ?? 0) + ($order_machine_supplies[$i] ?? 0);
-            if (!$periodStartSet && $d >= $fromDateStr) {
-                $periodStartBalance = $runningBalance;
-                $periodStartDate = $d;
-                $periodStartSet = true;
-            }
+            $dayIn  = $order_operation_orders_in[$i] ?? 0;
+            $dayOut = $order_operation_orders_out[$i] ?? 0;
+            $dayExF = $exchanges_from[$i] ?? 0;
+            $dayExT = $exchanges_to[$i] ?? 0;
+            $dayMS  = $order_machine_supplies[$i] ?? 0;
+            $dayDelta = $dayIn + $dayOut + $dayExF + $dayExT + $dayMS;
+            $open = $runningBalance;
             $runningBalance += $dayDelta;
+
+            if ($d >= $fromDateStr && $d <= $toDateStr) {
+                if (!$periodStartSet) {
+                    $periodStartBalance = $open;
+                    $periodStartDate = $d;
+                    $periodStartSet = true;
+                }
+                $periodEndBalance = $runningBalance;
+                $periodEndDate = $d;
+                $summaryRows[] = [
+                    'date' => $d,
+                    'init' => round($open, 2),
+                    'order_in' => $dayIn,
+                    'order_out' => $dayOut,
+                    'ex_from' => $dayExF,
+                    'ex_to' => $dayExT,
+                    'machine_supplie' => $dayMS,
+                    'last' => round($runningBalance, 2),
+                ];
+            }
         }
 
-        return view('dashboard.reports.machine_supplies_used_inventory', compact('operation_orders_in', 'operation_orders_out', 'exchange_from', 'exchange_to', 'machine_supplies', 'machine_supplie', 'order_operation_orders_in', 'order_operation_orders_out', 'order_machine_supplies', 'dates', 'init_quantities', 'last_quantities', 'exchanges_from', 'exchanges_to', 'dates_array', 'openingBalance', 'periodStartBalance', 'openingDate', 'periodStartDate', 'request'));
+        return view('dashboard.reports.machine_supplies_used_inventory', compact('operation_orders_in', 'operation_orders_out', 'exchange_from', 'exchange_to', 'machine_supplies', 'machine_supplie', 'order_operation_orders_in', 'order_operation_orders_out', 'order_machine_supplies', 'dates', 'init_quantities', 'last_quantities', 'exchanges_from', 'exchanges_to', 'dates_array', 'openingBalance', 'periodStartBalance', 'openingDate', 'periodStartDate', 'periodEndBalance', 'periodEndDate', 'summaryRows', 'request'));
     }
     
     

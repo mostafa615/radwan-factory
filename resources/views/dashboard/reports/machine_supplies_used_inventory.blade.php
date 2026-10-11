@@ -16,6 +16,7 @@
                             <td>باقى الاستخدام</td>
                             <td>الرصيد الافتتاحي <small>({{ $openingDate }})</small></td>
                             <td>رصيد بداية المدة <small>({{ $periodStartDate }})</small></td>
+                            <td>رصيد نهاية المدة <small>({{ $periodEndDate }})</small></td>
                             <td>التاريخ من </td>
                             <td>التاريخ الى</td>
                         </tr>
@@ -25,6 +26,7 @@
                             <td>{{ $machine_supplie->used }}</td>
                             <td>{{ number_format($openingBalance, 2, '.', '') }}</td>
                             <td>{{ number_format($periodStartBalance, 2, '.', '') }}</td>
+                            <td>{{ number_format($periodEndBalance, 2, '.', '') }}</td>
                             <td>{{ $request->date_from }}</td>
                             <td>{{ $request->date_to }}</td>
                         </tr>
@@ -66,9 +68,11 @@
                                         <tr>
                                             <td>{{ $item->date }}</td>
                                             <td>{{ $item->quantity }}</td>
-                                            <td><a href="{{ route('dashboard.operation_order_results.show', $item->operation_order_result_id ??0) }}"
-                                                    target="_blank">
-                                                    {{ $item->operation_order_result_id }}
+                                            <td>
+                                                {{ $item->operation_order_result_id }}
+                                                <a href="{{ route('dashboard.operation_order_results.show', $item->operation_order_result_id ??0) }}"
+                                                    target="_blank" class="btn btn-xs btn-primary" title="طباعة">
+                                                    <i class="fa fa-print"></i> طباعة
                                                 </a>
                                             </td>
                                             {{--<td><a href="{{ route('dashboard.operation_orders.show', $item->operation_order_id ??0) }}"
@@ -105,9 +109,11 @@
                                         <tr>
                                             <td>{{ $item->date }}</td>
                                             <td>{{ $item->quantity }}</td>
-                                            <td><a href="{{ route('dashboard.operation_order_results.show_out', $item->operation_order_result_id ??0) }}"
-                                                    target="_blank">
-                                                    {{ $item->operation_order_result_id }}
+                                            <td>
+                                                {{ $item->operation_order_result_id }}
+                                                <a href="{{ route('dashboard.operation_order_results.show_out', $item->operation_order_result_id ??0) }}"
+                                                    target="_blank" class="btn btn-xs btn-primary" title="طباعة">
+                                                    <i class="fa fa-print"></i> طباعة
                                                 </a>
                                             </td>
                                             {{--<td><a href="{{ route('dashboard.operation_orders.show_out', $item->operation_order_id ??0) }}"
@@ -248,33 +254,20 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        @php
-                                            $test = [];
-                                        @endphp
-
-                                        @forelse ($dates_array as $index => $date)
-                                            @php
-                                                $quantity = ($order_operation_orders_in[$index] ?? 0) + ($order_operation_orders_out[$index] ?? 0) + ($exchanges_from[$index] ?? 0) + ($exchanges_to[$index] ?? 0) + ($order_machine_supplies[$index] ?? 0);
-                                            @endphp
-                                            <tr class="amount-row" date-data={{ $date }}>
-                                                <td>{{ $date }}</td>
-                                                @php
-                                                    // الرصيد الافتتاحي لأول يوم = القيمة المثبّتة على used، وبعده = رصيد نهاية اليوم السابق
-                                                    $init_quantity = $index != 0 ? ($test[$index - 1] ?? 0) : $openingBalance;
-                                                @endphp
-                                                <td class="init">
-                                                    {{ number_format($init_quantity, 2, '.', '') }}
-                                                </td>
-                                                <td class="order_in">{{ $order_operation_orders_in[$index] ?? 0 }}</td>
-                                                <td class="order_out">{{ $order_operation_orders_out[$index] ?? 0 }}</td>
-                                                <td class="ex_from">{{ $exchanges_from[$index] ?? 0 }}</td>
-                                                <td class="ex_to">{{ $exchanges_to[$index] ?? 0 }}</td>
-
-                                                <td class="machine_supplie">{{ $order_machine_supplies[$index] ?? 0 }}</td>
-                                                <td class="last">{{ number_format($test[] = round($quantity + $init_quantity, 2), 2, '.', '') }}
-                                                </td>
+                                        {{-- صفوف الفترة المختارة فقط (محسوبة في الكنترولر مع حمل الرصيد الصحيح للفترة) --}}
+                                        @forelse ($summaryRows as $row)
+                                            <tr class="amount-row" date-data="{{ $row['date'] }}">
+                                                <td>{{ $row['date'] }}</td>
+                                                <td class="init">{{ number_format($row['init'], 2, '.', '') }}</td>
+                                                <td class="order_in">{{ $row['order_in'] }}</td>
+                                                <td class="order_out">{{ $row['order_out'] }}</td>
+                                                <td class="ex_from">{{ $row['ex_from'] }}</td>
+                                                <td class="ex_to">{{ $row['ex_to'] }}</td>
+                                                <td class="machine_supplie">{{ $row['machine_supplie'] }}</td>
+                                                <td class="last">{{ number_format($row['last'], 2, '.', '') }}</td>
                                             </tr>
                                         @empty
+                                            <tr><td colspan="8" class="text-center">لا توجد حركات في الفترة المختارة</td></tr>
                                         @endforelse
 
                                     </tbody>
